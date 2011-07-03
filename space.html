@@ -10,6 +10,7 @@
 		body > nav { position: absolute; z-index: 2; top: 0; right: 0; margin: 0; padding: 0.5em; color: #ddd; background: hsl(0, 0%, 20%); border-radius: 0 0 0 10px; }
 		body > section#map { position: relative; z-index: 1; width: 100%; height: 600px; border: 1px solid blue; }
 		
+		section#map.dragging { cursor: move; }
 		section#map > div { border: 1px solid red; }
 		section#map > div > ul { position: absolute; margin: 0; padding: 1em; list-style: none; border-radius: 5px; }
 		section#map > div > ul:nth-of-type(1) { top: 0; left: 0; background: hsl(150, 50%, 75%); }
@@ -17,6 +18,130 @@
 	</style>
 	<script src="jquery-1.6.2.min.js"></script>
 	<script>
+		var Matrix = (function(){
+			
+			var intern = {
+				identity: function(){
+					return reveal(
+						1, 0, 0,
+						0, 1, 0
+					);
+				},
+				translate: function(x, y){
+					return reveal(
+						1, 0, x,
+						0, 1, y
+					);
+				},
+				scale: function(s){
+					return reveal(
+						s, 0, 0,
+						0, s, 0
+					);
+				}
+			};
+			
+			var reveal = function(a, c, e, b, d, f){
+				var my = {a: a, b: b, c: c, d: d, e: e, f: f};
+				
+				function mul(other){
+					var m = my;
+					var o = other.values();
+					return reveal(
+						m.a * o.a + m.c * o.b, m.a * o.c + m.c * o.d, m.a * o.e + m.c * o.f + m.e * 1,
+						m.b * o.a + m.d * o.b, m.b * o.c + m.d * o.d, m.b * o.e + m.d * o.f + m.f * 1
+					);
+				}
+				
+				return {
+					mul: mul,
+					values: function(){
+						return my;
+					},
+					translate: function(x, y){
+						return mul(intern.translate(x, y));
+					},
+					scale: function(s){
+						return mul(intern.scale(s));
+					}
+				};
+			};
+			
+			reveal.identity = intern.identity;
+			reveal.translate = intern.translate;
+			reveal.scale = intern.scale;
+			
+			return reveal;
+		})();
+		/*
+		var matrix = function(){
+			var my = {a: 1, b: 0, c: 0, d: 0, e: 1, f: 0};
+			
+			function mul(my_values, other_values){
+				var m = my_values;
+				var o = other_values;
+				return {
+					a: m.a * o.a + m.c * o.b, c: m.a * o.c + m.c * o.d, e: m.a * o.e + m.c * o.f + m.e * 1,
+					b: m.b * o.a + m.d * o.b, d: m.b * o.c + m.d * o.d, f: m.b * o.e + m.d * o.f + m.f * 1
+				}
+			}
+			
+			var reveal = {
+				translate: function(x, y){
+					return {
+					};
+				}
+			};
+		}
+		
+		var trans = Matrix.identity();
+		trans = trans.translate(1, 2).scale(0.5).translate(-1, -2);
+		
+		function Matrix(a, c, e, b, d, f){
+			var my = {a: a, b: b, c: c, d: d, e: e, f: f};
+			return {
+				mul: function(other){
+					var m = my;
+					var o = other.values;
+					return Matrix(
+						m.a * o.a + m.c * o.b, m.a * o.c + m.c * o.d, m.a * o.e + m.c * o.f + m.e * 1,
+						m.b * o.a + m.d * o.b, m.b * o.c + m.d * o.d, m.b * o.e + m.d * o.f + m.f * 1
+					);
+				},
+				values: function(){
+					return my;
+				}
+			};
+		}
+		Matrix.identity = function(){
+			return Matrix(
+				1, 0, 0,
+				0, 1, 0
+			);
+		};
+		Matrix.translate = function(x, y){
+			return Matrix(
+				1, 0, x,
+				0, 1, y
+			);
+		};
+		Matrix.scale = function(s){
+			return Matrix(
+				s, 0, 0,
+				0, s, 0
+			);
+		};
+		
+		
+		var a = Matrix(1, 0, 0,	0, 1, 0);
+		var b = Matrix(2, 0, 0,	0, 2, 0);
+		var c = a.mul(b);
+		
+		var trans = Matrix.identity();
+		Matrix.translate(x, y);
+		Matrix.scale(s);
+		var trans = trans.translate().scale();
+		*/
 		$(document).ready(function(){
 			// Generate some random test sections
 			for(var i = 0; i < 15; i++){
@@ -33,18 +158,19 @@
 				$('#map > div').append(list);
 			}
 			
-			$('#map').data('dragging', false).data('view', {x: 0, y: 0, zoom: 1}).mousedown(function(event){
-				$(this).data('dragging', true).data('mouse-pos', {x: event.pageX, y: event.pageY});
+			$('#map').data('dragging', false).data('view', {matrix: Matrix.identity(), scale: 1}).mousedown(function(event){
+				if (event.target == this)
+					$(this).data('dragging', true).data('mouse-pos', {x: event.pageX, y: event.pageY}).addClass('dragging');
 			}).mouseup(function(){
-				$(this).data('dragging', false);
+				$(this).data('dragging', false).removeClass('dragging');
 			}).mousemove(function(event){
 				var elem = $(this);
 				if (elem.data('dragging')){
 					var dx = event.pageX - elem.data('mouse-pos').x;
 					var dy = event.pageY - elem.data('mouse-pos').y;
+					var view = elem.data('view');
 					
-					elem.data('view').x += dx;
-					elem.data('view').y += dy;
+					elem.data('view').matrix = view.matrix.translate(dx / view.scale, dy / view.scale);
 					elem.children().trigger('update');
 					
 					elem.data('mouse-pos', {x: event.pageX, y: event.pageY});
@@ -52,8 +178,18 @@
 				return false;
 			}).bind('zoom', function(event, dir, pageX, pageY){
 				var elem = $(this);
-				elem.data('view').zoom += dir;
-				elem.data('mouse-pos', {x: pageX, y: pageY});
+				var view = elem.data('view');
+				var scale = (dir > 0) ? 1.1 : 1 / 1.1;
+				var x = (pageX / view.scale) - view.matrix.values().e;
+				var y = (pageY / view.scale) - view.matrix.values().f;
+				
+				//elem.data('view').matrix = elem.data('view').matrix.translate(x, y).scale(scale).translate(-x, -y);
+				elem.data('view').matrix = elem.data('view').matrix.translate(pageX, pageY).scale(scale).translate(-pageX, -pageY);
+				elem.data('view').scale *= scale;
+				
+				console.log("dir", dir, "scale", scale, "stored scale", elem.data('view').scale, "a", view.matrix.values().a, "e", view.matrix.values().e, "f", view.matrix.values().f);
+				
+				//elem.data('mouse-pos', {x: pageX, y: pageY});
 				elem.children().trigger('update');
 				return false;
 			}).bind('mousewheel', function(event){
@@ -67,15 +203,25 @@
 			}).find('> div').bind('update', function(event){
 				var map = $(this).parent();
 				var view = map.data('view');
-				var scale = (view.zoom >= 0) ? 1 + 0.1 * view.zoom : Math.pow(10, 0.05 * view.zoom);
-				var mouse_pos = map.data('mouse-pos');
-				//var transform = 'translate(' + view.x + 'px, ' + view.y + 'px) translate(' + mouse_pos.x + 'px, ' + mouse_pos.y + 'px) scale(' + scale + ') translate(' + -mouse_pos.x + 'px, ' + -mouse_pos.y + 'px)';
-				var transform = 'translate(' + view.x + 'px, ' + view.y + 'px) translate(' + mouse_pos.x + 'px, ' + mouse_pos.y + 'px) scale(' + scale + ') translate(' + -mouse_pos.x + 'px, ' + -mouse_pos.y + 'px)';
-				//var transform = 'scale(' + scale + ')';
-				console.log('transform', transform);
+				//var scale = (view.zoom >= 0) ? 1 + 0.1 * view.zoom : Math.pow(10, 0.05 * view.zoom);
+				//var mouse_pos = map.data('mouse-pos');
+				//var transform = 'translate(' + view.x + 'px, ' + view.y + 'px) scale(' + scale + ')';
+				//var transform = 'translate(' + mouse_pos.x + 'px, ' + mouse_pos.y + 'px) scale(' + scale + ') translate(' + -mouse_pos.x + 'px, ' + -mouse_pos.y + 'px)';
+				//var transform = '';
+				//var trans = Matrix.identity();
+				//trans = trans.translate(view.x, view.y);
+				var m = map.data('view').matrix.values();
+				var transform = 'matrix(' + m.a + ', ' + m.b + ', ' + m.c + ', ' + m.d + ', ' + m.e + ', ' + m.f + ')';
+				//console.log("transform", transform);
 				$(event.target).css({
 					'-o-transform-origin': 'left top',
-					'-o-transform': transform
+					'-o-transform': transform,
+					'-moz-transform-origin': 'left top',
+					'-moz-transform': transform,
+					'-webkit-transform-origin': 'left top',
+					'-webkit-transform': transform,
+					'-ms-transform-origin': 'left top',
+					'-ms-transform': transform
 				});
 				return false;
 			});
