@@ -158,23 +158,6 @@
 		});
 		
 		$(document).ready(function(){
-			// Generate some random test sections
-			/*
-			for(var i = 0; i < 15; i++){
-				var x = Math.random() * 1500;
-				var y = Math.random() * 1000;
-				var color = Math.floor(Math.random() * 360);
-				
-				var list = $('<ul>');
-				for(var j = 0; j < 5; j++){
-					$('<li>xyz</li>').appendTo(list);
-				}
-				list.css({'top': x + 'px', 'left': y + 'px', 'background-color': 'hsl(' + color + ', 50%, 75%)'});
-				
-				$('#map > div').append(list);
-			}
-			*/
-			
 			function createEntryIn(entryData, plain){
 				var entry = null;
 				if (entryData.type == 'plain') {
@@ -187,20 +170,11 @@
 					for(var t = 0; t < entryData.tags.length; t++)
 						$('<li>').text(entryData.tags[t]).appendTo(tags);
 					
-					$(entryData.content).appendTo(entry);
-					//entry.html();
-					//$('<header>').append( $('<h1 class="movable">').attr('id', entryData.id).text(entryData.title), tags ).prependTo(entry);
+					$('<div>').html(entryData.content).appendTo(entry);
 				}
 				
 				entry.find('> header > h1').text(entryData.title);
 				
-				/*
-				var actions = $('<ul class="actions">').
-					append('<li class="save" title="Save changes">save</li>').
-					append('<li class="close" title="Close editor">close</li>').
-					append('<li class="delete" title="Delete">delete</li>');
-				$('<aside>').append(actions).append( $('<span class="movable expander">') ).appendTo(entry);
-				*/
 				if (entryData.plain){
 					var styles = {left: entryData.plain[0] + 'px', top: entryData.plain[1] + 'px'};
 					if (entryData.plain[2])
@@ -231,7 +205,7 @@
 			/**
 			 * High level movement logic for plains and entries.
 			 */
-			$('.entry > .movable', $('#map > div').get(0)).live({
+			$('.entry > header > .movable', $('#map > div').get(0)).live({
 				'movement-started': function(){
 					$(this).closest('.entry').addClass('moving');
 					return false;
@@ -271,7 +245,7 @@
 			 * Resizing logic for plains and entries. We move the expander around but
 			 * instead of changing a position we just change the size of the entry.
 			 */
-			$('.entry .expander', $('#map > div').get(0)).live({
+			$('.entry > aside > .expander', $('#map > div').get(0)).live({
 				'movement-started': function(){
 					$(this).closest('.entry').addClass('expanding');
 					return false;
@@ -281,7 +255,11 @@
 					var width = parseFloat(entry.css('width')) || entry.outerWidth();
 					var height = parseFloat(entry.css('height')) || entry.outerHeight();
 					var scale = $('#map').data('view').scale;
-					entry.css({width: (width + dx / scale) + 'px', height: (height + dy / scale) + 'px'});
+					
+					entry.css('width', (width + dx / scale) + 'px');
+					if (entry.is('section'))
+						entry.css('height', (height + dy / scale) + 'px');
+					
 					return false;
 				},
 				'movement-stopped': function(){
@@ -373,15 +351,6 @@
 
 <section id="map" class="movable">
 	<div>
-		<!--
-		<article class="idea">
-			<header>
-				<h3>Futex Cheat Sheet</h3>
-			</header>
-			
-			<p>Reference of the futex kernel API. Useful for building you own synchronization primitives.</p>
-		</article>
-		-->
 	</div>
 </section>
 
