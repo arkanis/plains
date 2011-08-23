@@ -1,32 +1,86 @@
 <?php
 
-require_once('../include/entry.php');
-
-
-// Markdown processor
-require_once('../include/processors/markdown.php');
-Entry::add_processor('markdown', function($raw_content, $entry){
-	return Markdown($raw_content);
-});
-
-// Add a comment processor used to savely process the comments.
-require_once('../include/processors/comment.php');
-Entry::add_processor('comment', function($raw_content, $entry){
-	return comment_to_html($raw_content);
-});
-
+/**
+ * REST like interface to the plain data
+ * 
+ * 	GET		/data	→	full recursive list of plains and entries
+ * 	POST	/data	→	new entry
+ * 	GET		/data/id	→	entry data
+ * 	PUT		/data/id	→	update entry
+ * 	DELETE	/data/id	→	delete entry
+ */
 
 $_CONFIG = array(
+	'id_prefix' => '/data',
 	'data_dir' => '../data',
-	'plain_content_files' => '/.*\.(idea|note)/i',
 	'plain_file' => '.plain'
 );
 
-function path_to_id($path){
-	global $_CONFIG;
-	$full_entry_path = realpath($path);
-	$full_data_path = realpath($_CONFIG['data_dir']);
-	return '/data' . substr($full_entry_path, strlen($full_data_path));
+
+//
+// Configure the Entry class
+//
+
+require_once('../include/entry.php');
+
+// Markdown processor
+require_once('../include/processors/markdown.php');
+Entry::processor('markdown', function($raw_content, $entry){
+	return Markdown($raw_content);
+});
+
+Entry::route_in(function($id) use($_CONFIG){
+	// Strip the leading id prefix (e.g. '/data'). If the id does not start with the prefix
+	// it is regarded as invalid and we return `false`.
+	if ( substr($id, 0, strlen($_CONFIG['id_prefix'])) == $_CONFIG['id_prefix'] )
+		$path = substr($id, strlen($_CONFIG['id_prefix']));
+	else
+		return false;
+	
+	// Prepend the data directory
+	$path = $_CONFIG['data_dir'] . $path;
+	
+	// Make sure the path does not escape out of the data directory (if so it's invalid
+	// and return `false`)
+	$expanded_path = realpath($path);
+	$expanded_data_dir = realpath($_CONFIG['data_dir']);
+	
+	// If realpath() returns `false` the file does not exist, so there should be no danger in
+	// the path. Otherwise we only allow the path if the absolute path is still in the data
+	// directory.
+	if ( $expanded_path === false or substr($expanded_path, 0, strlen($expanded_data_dir)) == $expanded_data_dir ) {
+		// If we got a directory (a plain) modify the path to point to the entry for the directory
+		if ( is_dir($path) )
+			$path .= '/' . $_CONFIG['plain_file'];
+		return $path;
+	} else {
+		return false;
+	}
+});
+
+Entry::route_out(null, function($path, $entry) use($_CONFIG){
+	// Strip away the leading data directory path (if the path does not start with it we don't
+	// create an ID for that entry.
+	if ( substr($path, 0, strlen($_CONFIG['data_dir'])) == $_CONFIG['data_dir'] )
+		$id = substr($path, strlen($_CONFIG['data_dir']));
+	else
+		return null;
+	
+	if ( pathinfo($path, PATHINFO_EXTENSION) == 'plain')
+		$id = dirname($id);
+	
+	// Add the id prefix to finish the id
+	return $_CONFIG['id_prefix'] . $id;
+});
+
+
+//
+// Action helper functions
+//
+
+function exit_with_error($http_status_code, $message){
+	header('Content-Type: application/json', false, $http_status_code);
+	exit( json_encode(array('message' => $message)) );
 }
 
 function load_plain($plain_path){
@@ -34,131 +88,272 @@ function load_plain($plain_path){
 	
 	// First look for a file with data of our plain
 	$plain = Entry::load($plain_path . '/' . $_CONFIG['plain_file']);
-	if ($plain) {
-		$data = array('type' => 'plain', 'id' => path_to_id($plain_path), 'title' => $plain->title, 'color' => $plain->color, 'plain' => $plain->plain_as_list);
-	} else {
-		// Return default data (just the directory name)
-		$data = array('type' => 'plain', 'id' => path_to_id($plain_path), 'title' => basename($plain_path));
-	}
+	$data = array('id' => Entry::translate_path_to_id($plain_path), 'type' => 'plain');
+	$data['headers'] = empty($plain) ? array() : $plain->headers;
 	
-	$content = array();
+	// If no title is set return the directory name as title
+	if ( !isset($data['headers']['title']) )
+		$data['headers']['title'] = basename($plain_path);
+	
+	$entries = array();
 	foreach(glob($plain_path . '/*') as $child_path){
-		if (is_dir($child_path)) {
-			// We got a directory, so go in recursively (dot directories are not returned by glob)
-			$content[] = load_plain($child_path);
-		} elseif (preg_match($_CONFIG['plain_content_files'], basename($child_path))) {
-			// We got a content file, load it and add it's data
-			$entry = Entry::load($child_path);
-			$content[] = array(
-				'type' => $entry->type,
-				'id' => path_to_id($child_path),
-				'title' => $entry->title,
-				'date' => $entry->date_as_time,
-				'tags' => $entry->tags_as_list,
-				'plain' => $entry->plain_as_list,
-				'content' => $entry->content
-			);
+		if ( pathinfo($child_path, PATHINFO_EXTENSION) != 'deleted' ){
+			if (is_dir($child_path)) {
+				// We got a directory, so go in recursively (dot directories are not returned by glob)
+				$entries[] = load_plain($child_path);
+			} elseif ( basename($child_path) != $_CONFIG['plain_file'] ) {
+				// We got a content file, load it and add it's data
+				$entry = Entry::load($child_path);
+				$entries[] = array(
+					'id' => $entry->id,
+					'type' => $entry->type,
+					'headers' => $entry->headers,
+					'content' => $entry->content
+				);
+			}
 		}
 	}
 	
-	$data['content'] = $content;
+	$data['entries'] = $entries;
 	return $data;
 }
 
-function is_path_in_data_dir($path){
-	global $_CONFIG;
-	$full_entry_path = realpath($path);
-	$full_data_path = realpath($_CONFIG['data_dir']);
-	return substr($full_entry_path, 0, strlen($full_data_path)) == $full_data_path;
-}
 
+//
+// Here the real action takes place
+//
 
-
-if ( !isset($_GET['id']) ) {
-	// GET / => 200
+if ( $_SERVER['REQUEST_METHOD'] == 'POST' )
+{
 	// POST / => 201 or 500
+	$incomming_data = json_decode(file_get_contents('php://input'), true);
+	
+	if ( !isset($incomming_data['raw']) or !$incomming_data['type'] )
+		exit_with_error(422, 'The raw or type field is missing in the uploaded data');
+	
+	// Load the new data
+	$entry = Entry::load_from_string($incomming_data['raw'], null, false);
+	$entry_headers = $entry->headers;
+	$entry_content = $entry->raw_content;
+	
+	// And apply the send headers to it
+	if ( isset($incomming_data['headers']) and !empty($incomming_data['headers']) ){
+		foreach($incomming_data['headers'] as $field => $value)
+			$entry_headers[$field] = $value;
+	}
+	
+	// Determine the path for the new entry
+	$parent_id = isset($_GET['id']) ? $_GET['id'] : '/data';
+	$title = Entry::parameterize($entry_headers['Title']);
+	$path = Entry::translate_id_to_path($parent_id . '/' . $title);
+	
+	// Create the files is possible
+	if ($incomming_data['type'] == 'plain') {
+		if ( file_exists($path) )
+			exit_with_error(422, 'Plain with that name already exists');
+		
+		if ( ! mkdir($path) )
+			exit_with_error(500, 'Could not create directory for new plain');
+		
+		$entry_path = $path . '/' . $_CONFIG['plain_file'];
+		if ( ! Entry::save($entry_path, $entry_headers, $entry_content) )
+			exit_with_error(500, 'Could not create plain file for new plain');
+	} else {
+		$entry_path = $path . '.' . $incomming_data['type'];
+		if ( file_exists($entry_path) )
+			exit_with_error(422, 'Entry with that name and type already exists');
+		
+		if ( ! Entry::save($entry_path, $entry_headers, $entry_content) )
+			exit_with_error(500, 'Could not create new entry');
+	}
+	
+	$entry = Entry::load($entry_path);
+	$content = array(
+		'id' => $entry->id,
+		'type' => $entry->type,
+		'headers' => $entry->headers,
+		'content' => $entry->content,
+		'raw_content' => $entry->raw_content
+	);
+	header('Content-Type: application/json');
+	echo(json_encode($content));
+	
+	exit();
+}
+elseif ( !isset($_GET['id']) )
+{
 	if ( $_SERVER['REQUEST_METHOD'] == 'GET' ) {
+		// GET / => 200
+		// Build a recursive plain and entry list
+		
 		$data = load_plain($_CONFIG['data_dir']);
+		
 		// Throw away the outer plain since it's just the raw data directory
-		$data = $data['content'];
+		$data = array(
+			'entries' => $data['entries']
+		);
+		
+		// Add the position and scale data
+		$user_data = Entry::load($_CONFIG['data_dir'] . '/.user');
+		if ($user_data) {
+			$data['pos'] = $user_data->position_as_list;
+			$data['scale'] = $user_data->scale;
+		} else {
+			$data['pos'] = array(0, 0);
+			$data['scale'] = 1.0;
+		}
+		
 		header('Content-Type: application/json');
 		exit(json_encode($data));
-	} elseif ( $_SERVER['REQUEST_METHOD'] == 'POST' ) {
-		// TODO: Figure out the file name for the new entry based on its title
-		if ( file_exists($path) ) {
-			header('', false, 500);
-		} else {
-			$content = file_get_contents('php://input');
-			if ( file_put_contents($filename, $content) )
-				header('Location: http://' . $_SERVER['HTTP_HOST'] . path_to_id($path), false, 201);
-			else
-				header('', false, 500);
-		}
+	} elseif ( $_SERVER['REQUEST_METHOD'] == 'PUT' ) {
+		// PUT / => 204, 500
+		// Stores the new position and scale data in the user file
+		
+		$data = json_decode( file_get_contents('php://input') );
+		$headers = array(
+			'Position' => join(', ', $data->pos),
+			'Scale' => $data->scale
+		);
+		
+		if ( Entry::save($_CONFIG['data_dir'] . '/.user', $headers) )
+			header('Content-Type: application/json', false, 204);
+		else
+			exit_with_error(500, 'Could not save user data');
 		exit();
 	}
 } else {
 	// GET /id => 200 or 404
 	// PUT /id => 204 or 404
 	// DELETE /id => 204 or 404
-	$path = $_CONFIG['data_dir'] . '/' . $_GET['id'];
-	
-	// Make sure the path in the id does not escape from the data directory
-	if ( !is_path_in_data_dir($path) ){
-		header('Content-Type: text/plain', false, 404);
-		exit();
-	}
 	
 	if ( $_SERVER['REQUEST_METHOD'] == 'GET' ) {
-		$entry = Entry::load($path);
-		if ($entry) {
-			$content = array(
-				'type' => $entry->type,
-				'id' => path_to_id($path),
-				'title' => $entry->title,
-				'date' => $entry->date_as_time,
-				'tags' => $entry->tags_as_list,
-				'plain' => $entry->plain_as_list,
-				'content' => $entry->content,
-				'raw_content' => $entry->raw_content
-			);
-			header('Content-Type: text/plain');
-			echo(json_encode($content));
+		$path = Entry::translate_id_to_path($_GET['id']);
+		if ($path) {
+			$raw = @file_get_contents($path);
+			if ($raw) {
+				$entry = Entry::load_from_string($raw, $path);
+				$content = array(
+					'id' => $entry->id,
+					'type' => $entry->type,
+					'headers' => $entry->headers,
+					'content' => $entry->content,
+					'raw_content' => $entry->raw_content,
+					'raw' => $raw
+				);
+				header('Content-Type: application/json');
+				echo(json_encode($content));
+			} else {
+				exit_with_error(404, 'Could not find entry');
+			}
 		} else {
-			header('Content-Type: text/plain', false, 404);
+			exit_with_error(404, 'Could not find entry');
 		}
 		exit();
 	} elseif ( $_SERVER['REQUEST_METHOD'] == 'PUT' ) {
 		$incomming_data = json_decode(file_get_contents('php://input'), true);
-		list($entry_headers, $entry_content) = Entry::analyze($path);
+		$path = Entry::translate_id_to_path($_GET['id']);
+		if ( ! $path )
+			exit_with_error(404, 'Could not find entry');
 		
-		if (!$entry_headers){
-			header('Content-Type: text/plain', false, 404);
-			exit();
+		// If we got raw entry data load that, otherwise load the original entry
+		if ( isset($incomming_data['raw']) and !empty($incomming_data['raw']) ) {
+			$entry = Entry::load_from_string($incomming_data['raw'], $path, false);
+		} else {
+			$entry = Entry::load($path, false);
 		}
 		
-		foreach($incomming_data as $field => $value)
-			$entry_headers[$field] = $value;
+		$entry_headers = $entry->headers;
+		$entry_content = $entry->raw_content;
 		
-		if ( isset($incomming_data['content']) and !empty($incomming_data['content']) )
-			$entry_content = $incomming_data['content'];
+		// Apply the new headers
+		if ( isset($incomming_data['headers']) and !empty($incomming_data['headers']) ){
+			foreach($incomming_data['headers'] as $field => $value)
+				$entry_headers[$field] = $value;
+		}
 		
 		if ( Entry::save($path, $entry_headers, $entry_content) ) {
-			// TODO: change the filename according to it's title and add the Location header for the new path
-			header('Content-Type: text/plain', false, 204);
+			if ($entry->type == 'plain') {
+				$dir = isset($incomming_data['plain']) ? dirname(Entry::translate_id_to_path($incomming_data['plain'])) : dirname(dirname($path));
+				$filename = isset($entry_headers['Title']) ? Entry::parameterize($entry_headers['Title']) : basename(dirname($path));
+				
+				$old_path = dirname($path);
+				$new_path = $dir . '/' . $filename;
+				$entry_path = $new_path . '/' . $_CONFIG['plain_file'];
+			} else {
+				$dir = isset($incomming_data['plain']) ? dirname(Entry::translate_id_to_path($incomming_data['plain'])) : dirname($path);
+				$filename = isset($entry_headers['Title']) ? Entry::parameterize($entry_headers['Title']) . '.' . $entry->type : basename($path);
+				
+				$old_path = $path;
+				$new_path = $dir . '/' . $filename;
+				$entry_path = $new_path;
+			}
+			
+			/*
+			// Take the new plain directory where the entry should be moved to. We let the entry routes do
+			// the hard work and just strip the .plain file from the translated path later on.
+			if ( isset($incomming_data['Plain']) and ! empty($incomming_data['Plain']) )
+				$plain_dir = dirname(Entry::translate_id_to_path($incomming_data['Plain']));
+			
+			// If we got no new plain directory use the old one
+			if ( !isset($plain_dir) or empty($plain_dir) )
+				$plain_dir = dirname($entry->path);
+			// For a plain we need to strip the file name again, once for the .plain file (thats done above) and
+			// once for the directory name of the plain itself.
+			if ($entry->type == 'plain')
+				$plain_dir = dirname($plain_dir);
+			
+			
+			// Get the new filename for the entry. If no title header is set we use the file name. For a
+			// plain we use the name of the directory the .plain file is in.
+			if ( isset($entry_headers['Title']) and !empty($entry_headers['Title']) )
+				$entry_filename = Entry::parameterize($entry_headers['Title']);
+			else
+				$entry_filename = ($entry->type == 'plain') ? basename(dirname($path)) : pathinfo($path, PATHINFO_FILENAME);
+			
+			// Construct the full new path for the entry
+			$new_path = $plain_dir . '/' . $entry_filename . ( ($entry->type != 'plain') ? '.' . $entry->type : '' );
+			*/
+			
+			if ( $old_path == $new_path or rename($old_path, $new_path) ) {
+				$entry = Entry::load($entry_path);
+				if ($entry) {
+					$content = array(
+						'id' => $entry->id,
+						'type' => $entry->type,
+						'headers' => $entry->headers,
+						'content' => $entry->content,
+						'raw' => $entry->raw_content
+					);
+					header('Content-Type: application/json');
+					echo(json_encode($content));
+				} else {
+					exit_with_error(500, 'Failed to read updated entry');
+				}
+			} else {
+				exit_with_error(500, 'Failed to move entry to a new location');
+			}
 		} else {
-			header('Content-Type: text/plain', false, 422);
+			exit_with_error(500, 'Failed to save updated entry');
 		}
 		exit();
 	} elseif ( $_SERVER['REQUEST_METHOD'] == 'DELETE' ) {
-		if ( rename($path, $path . '.deleted') )
-			header('Content-Type: text/plain', false, 204);
-		else
-			header('Content-Type: text/plain', false, 404);
+		$path = Entry::translate_id_to_path($_GET['id']);
+		if ( file_exists($path) ) {
+			// If we got a plain file we actually need to rename the directory
+			if ( pathinfo($path, PATHINFO_EXTENSION) == 'plain' )
+				$path = dirname($path);
+			
+			if ( rename($path, $path . '.deleted') )
+				header('Content-Type: application/json', false, 204);
+			else
+				exit_with_error(500, 'Could not delete entry');
+		} else {
+			exit_with_error(404, 'Could not find entry');
+		}
 		exit();
 	}
 }
 
-header('', false, 405);
-exit();
+exit_with_error(405, 'Unknown action');
 
 ?>
