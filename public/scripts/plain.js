@@ -97,10 +97,31 @@ $(document).ready(function(){
 		$('#map').trigger('reset-zoom');
 		return false;
 	});
+	
+	function translate_page_to_world_space(page_x, page_y, target_elem){
+		var view = $('#map').data('view');
+		var world_x = (page_x - view.x) / view.scale;
+		var world_y = (page_y - view.y) / view.scale;
+		var pos = target_elem.position();
+		
+		return {x: world_x - pos.left, y: world_y -  pos.top};
+	}
+	
 	$('body > nav > ul > li.new').click(function(){
 		var type = $(this).data('type');
 		
-		$('#map').one('click', function(event){
+		var movement_handler = function(event){
+			var indicator = $('#region-draft');
+			var mouse_pos = translate_page_to_world_space(event.pageX, event.pageY, indicator.parent());
+			var start_pos = indicator.position();
+			indicator.css({
+				width: mouse_pos.x - start_pos.left,
+				height: mouse_pos.y - start_pos.top
+			});
+			return false;
+		};
+		
+		$('#map').one('mousedown', function(event){
 			// Figure out in which element the new stuff should be put
 			var target_elem = $(event.target).closest('section');
 			// If we create something directly on the level of the map (root plain) use
@@ -108,30 +129,47 @@ $(document).ready(function(){
 			if (target_elem.attr('id') == 'map')
 				target_elem = target_elem.find('> div');
 			
-			// Convert the mouse position of the click from screen space to world space
-			var view = $('#map').data('view');
-			var x = (event.pageX - view.x) / view.scale;
-			var y = (event.pageY - view.y) / view.scale;
+			var world = translate_page_to_world_space(event.pageX, event.pageY, target_elem);
 			
-			// If the entry is created in a plain take the plain position into account
-			var parent_offsets = target_elem.offset();
-			x = x - parent_offsets.left;
-			y = y - parent_offsets.top;
+			$('<div id="region-draft" />').css({
+				left: world.x, top: world.y, width: 0, height: 0
+			}).appendTo(target_elem);
+			
+			$('#map').bind('mousemove', movement_handler);
+			
+			return false;
+		});
+		
+		$('#map').one('mouseup', function(event){
+			// Unbind the movement handler and use the mouseup event as a final mouse move.
+			$('#map').unbind('mousemove', movement_handler);
+			movement_handler(event);
+			
+			var indicator = $('#region-draft');
+			target_elem = indicator.parent();
+			var pos = indicator.position();
 			
 			if (type == 'plain')
 				var entry = $('#templates > #plain').clone();
 			else
 				var entry = $('#templates > #entry').clone();
 			
-			entry.addClass('editing').addClass(type).css({left: x + 'px', top: y + 'px'}).
-				removeAttr('id').data('type', type).data('entry', {}).
+			entry.addClass('editing').addClass(type).
+				removeAttr('id').data('type', type).data('entry', {}).css({
+					left: pos.left, top: pos.top, width: indicator.width(), height: indicator.height()
+				}).
 				find('> header > h1').text('New entry').end().
 				find('> aside > ul.actions').addClass('creating').end().
 				append( $('<textarea>') ).
 				appendTo(target_elem).trigger('resize');
 			
+			entry.trigger('resize').
+				find('> textarea').val("Title: \nProcessors: markdown").focus();
+			indicator.remove();
+			
 			return false;
 		});
+		
 		return false;
 	});
 });

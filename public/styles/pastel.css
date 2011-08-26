@@ -79,10 +79,6 @@ body > nav > ul {
   border-width: 1px;
   border-style: solid; }
 
-.entry.editing {
-  min-width: 20em;
-  min-height: 20em; }
-
 .entry.editing > textarea {
   font-size: inherit;
   font-family: sans-serif;
@@ -330,3 +326,10 @@ section#map .expander {
   height: 10px;
   background: url(/styles/resizer.png) no-repeat right bottom;
   cursor: se-resize; }
+
+#region-draft {
+  position: absolute;
+  background: #d9d9d9;
+  border-radius: 5px;
+  box-shadow: 0 0 10px black;
+  z-index: 10; }

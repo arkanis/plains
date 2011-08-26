@@ -173,7 +173,7 @@
 					var height = parseFloat(entry.css('height')) || entry.outerHeight();
 					var scale = $('#map').data('view').scale;
 					
-					entry.css('min-width', (width + dx / scale) + 'px');
+					entry.css('width', (width + dx / scale) + 'px');
 					if (entry.is('section') || entry.hasClass('editing'))
 						entry.css('min-height', (height + dy / scale) + 'px');
 					entry.trigger('resize');
@@ -285,7 +285,7 @@
 					var shape = entryData.headers.shape.split(',');
 					var styles = {left: parseFloat(shape[0]) + 'px', top: parseFloat(shape[1]) + 'px'};
 					if (shape[2])
-						styles.minWidth = parseFloat(shape[2]) + 'px';
+						styles.width = parseFloat(shape[2]) + 'px';
 					if (shape[3])
 						styles.minHeight = parseFloat(shape[3]) + 'px';
 					entry.css(styles);
