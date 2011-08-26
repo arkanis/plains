@@ -115,6 +115,7 @@ $(document).ready(function(){
 			var indicator = $('#region-draft');
 			var mouse_pos = translate_page_to_world_space(event.pageX, event.pageY, indicator.parent());
 			var start_pos = indicator.position();
+			console.log(mouse_pos.x - start_pos.left, mouse_pos.y - start_pos.top);
 			indicator.css({
 				width: mouse_pos.x - start_pos.left,
 				height: mouse_pos.y - start_pos.top

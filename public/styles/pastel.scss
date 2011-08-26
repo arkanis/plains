@@ -168,3 +168,4 @@ section#map .expander { position: absolute; right: 2px; bottom: 2px; width: 10px
 	background: url(/styles/resizer.png) no-repeat right bottom; cursor: se-resize; }
 
 #region-draft { position: absolute; background: hsl(0, 0%, 85%); border-radius: 5px; box-shadow: 0 0 10px black; z-index: 10; }
+#region-draft { -webkit-box-shadow: 0 0 10px black; }
