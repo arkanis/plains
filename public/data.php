@@ -142,6 +142,8 @@ if ( $_SERVER['REQUEST_METHOD'] == 'POST' )
 			$entry_headers[$field] = $value;
 	}
 	
+	$entry_headers['Created'] = strftime('%F %T');
+	
 	// Determine the path for the new entry
 	$parent_id = isset($_GET['id']) ? $_GET['id'] : '/data';
 	$title = Entry::parameterize($entry_headers['Title']);
@@ -287,32 +289,6 @@ elseif ( !isset($_GET['id']) )
 				$new_path = $dir . '/' . $filename;
 				$entry_path = $new_path;
 			}
-			
-			/*
-			// Take the new plain directory where the entry should be moved to. We let the entry routes do
-			// the hard work and just strip the .plain file from the translated path later on.
-			if ( isset($incomming_data['Plain']) and ! empty($incomming_data['Plain']) )
-				$plain_dir = dirname(Entry::translate_id_to_path($incomming_data['Plain']));
-			
-			// If we got no new plain directory use the old one
-			if ( !isset($plain_dir) or empty($plain_dir) )
-				$plain_dir = dirname($entry->path);
-			// For a plain we need to strip the file name again, once for the .plain file (thats done above) and
-			// once for the directory name of the plain itself.
-			if ($entry->type == 'plain')
-				$plain_dir = dirname($plain_dir);
-			
-			
-			// Get the new filename for the entry. If no title header is set we use the file name. For a
-			// plain we use the name of the directory the .plain file is in.
-			if ( isset($entry_headers['Title']) and !empty($entry_headers['Title']) )
-				$entry_filename = Entry::parameterize($entry_headers['Title']);
-			else
-				$entry_filename = ($entry->type == 'plain') ? basename(dirname($path)) : pathinfo($path, PATHINFO_FILENAME);
-			
-			// Construct the full new path for the entry
-			$new_path = $plain_dir . '/' . $entry_filename . ( ($entry->type != 'plain') ? '.' . $entry->type : '' );
-			*/
 			
 			if ( $old_path == $new_path or rename($old_path, $new_path) ) {
 				$entry = Entry::load($entry_path);

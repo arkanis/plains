@@ -19,11 +19,11 @@ $(document).ready(function(){
 		// the original data and show that.
 		var textarea = entry.find('> textarea');
 		if (textarea.size() > 0) {
-			textarea.show();
+			textarea.show().focus();
 			entry.trigger('resize');
 		} else {
 			jQuery.ajax(entry.attr('id'), {dataType: 'json', success: function(data){
-				$('<textarea>').val(data.raw).appendTo(entry).show();
+				$('<textarea>').val(data.raw).appendTo(entry).show().focus();
 				entry.trigger('resize');
 			}});
 		}
@@ -32,7 +32,7 @@ $(document).ready(function(){
 	$('.entry > aside > .actions > .save', map).live('click', function(){
 		$(this).closest('ul.actions').removeClass('editing');
 		
-		var entry = $(this).closest('.entry')
+		var entry = $(this).closest('.entry');
 		entry.removeClass('editing').
 			find('> textarea').hide().end().
 			find('> div').show();
@@ -71,7 +71,8 @@ $(document).ready(function(){
 				entry.removeClass('editing').
 					find('> aside > ul.actions').removeClass('creating').end().
 					find('> textarea').hide().end().
-					data('entry', data).trigger('sync-to-data').trigger('reshaped');
+					data('entry', data).trigger('sync-to-data').
+					trigger('reshaped');
 			}
 		});
 	});
@@ -161,7 +162,8 @@ $(document).ready(function(){
 				find('> header > h1').text('New entry').end().
 				find('> aside > ul.actions').addClass('creating').end().
 				append( $('<textarea>') ).
-				appendTo(target_elem).trigger('resize');
+				appendTo(target_elem).trigger('resize').
+				find('> textarea').focus().end();
 			
 			entry.trigger('resize').
 				find('> textarea').val("Title: \nProcessors: markdown").focus();
