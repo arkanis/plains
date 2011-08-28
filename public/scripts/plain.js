@@ -108,7 +108,8 @@ $(document).ready(function(){
 	 * 
 	 * Movement is done through the movement events triggered above. Zooming is done by capturing some browser
 	 * dependent mouse wheel events and mapping them to the custom `zoom` event. This event then changes the scale
-	 * and rescales the map origin in a way that the pixel below the mouse does not move.
+	 * and rescales the map origin in a way that the pixel below the mouse does not move. If a mouse wheel event is
+	 * triggered on a textarea it is ignored. Otherwise we would break textarea scolling.
 	 * 
 	 * The `reset-zoom` event resets the scale to 1.0 and adjusts the origin so the center of the page stays in the
 	 * center. This is not a real event, you can trigger it to reset the scale. So it's more or less some kind of function.
@@ -166,12 +167,14 @@ $(document).ready(function(){
 		'mousewheel': function(event){
 			// Map the Opera, Chrome and IE mouse wheel events to our custom zoom event
 			var dir = (event.wheelDelta >= 0) ? 1 : -1;
-			return $('#map').triggerHandler('zoom', [dir, event.pageX, event.pageY]);
+			if ( !$(event.target).is('textarea') )
+				return $('#map').triggerHandler('zoom', [dir, event.pageX, event.pageY]);
 		},
 		'DOMMouseScroll': function(event){
 			// Map the Gecko mouse wheel events to our custom zoom event
 			var dir = (event.detail < 0) ? 1 : -1;
-			return $('#map').triggerHandler('zoom', [dir, event.pageX, event.pageY]);
+			if ( !$(event.target).is('textarea') )
+				return $('#map').triggerHandler('zoom', [dir, event.pageX, event.pageY]);
 		},
 		'reset-zoom': function(event){
 			var map = $('#map');
@@ -232,7 +235,10 @@ $(document).ready(function(){
 			var shape = entry.data('shape');
 			
 			// Construct a new shape header and send it to the server
-			shape_header = [shape.left, shape.top, shape.width, shape.height].join(', ');
+			shape_header = [
+				Math.round(shape.left), Math.round(shape.top),
+				Math.round(shape.width), Math.round(shape.height)
+			].join(', ');
 			$.ajax(data.id, {
 				type: 'PUT',
 				data: JSON.stringify({headers: {'Shape': shape_header}})
@@ -244,6 +250,8 @@ $(document).ready(function(){
 		'content-updated': function(){
 			var entry = $(this);
 			var data = entry.data('entry');
+			
+			console.log('content-updated', data);
 			
 			// Build a shape data object for the interacting and interacted events
 			var shape = {left: 0, top: 0, width: 200, height: 100};
@@ -453,12 +461,13 @@ $(document).ready(function(){
 		jQuery.ajax(parent_id, {
 			type: 'POST', data: JSON.stringify({
 				raw: entry.find('> textarea').val(),
-				type: entry.data('entry').type
+				type: entry.data('entry').type,
+				headers: {'Shape': entry.data('entry').headers.shape}
 			}), success: function(data){
 				entry.removeClass('creating').
-					find('> aside > ul.actions > .close').click().
-					data('entry', data);
-				entry.trigger('content-updated').trigger('interacted');
+					find('> aside > ul.actions > .close').click().end().
+					find('> textarea').remove();
+				entry.data('entry', data).trigger('content-updated');
 			}
 		});
 	});
@@ -562,7 +571,10 @@ $(document).ready(function(){
 				type: type,
 				headers: {
 					title: 'New entry',
-					shape: [pos.x, pos.y, indicator.width(), indicator.height()].join(', ')
+					shape: [
+						Math.round(pos.x), Math.round(pos.y),
+						Math.round(indicator.width()), Math.round(indicator.height())
+					].join(', ')
 				}
 			}).addClass('creating').appendTo(target_elem).trigger('content-updated');
 			

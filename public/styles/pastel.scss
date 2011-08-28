@@ -28,7 +28,7 @@ body > nav > ul {
 	border-radius: 3px; border-width: 1px; border-style: solid; }
 
 .entry > textarea { font-size: inherit; font-family: sans-serif;
-	position: absolute; top: 0; left: 0;
+	position: absolute; top: 0; left: 0; z-index: 2;
 	margin: 0; padding: 5px; border: none;
 	background-color: inherit; }
 
@@ -64,10 +64,10 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 }
 
 .entry > aside > ul.actions:hover {
-	z-index: 1; width: 72px; height: 72px; right: -24px; top: -24px;
+	z-index: 3; width: 72px; height: 72px; right: -24px; top: -24px;
 	border-width: 0; border-radius: 50%;
 	
-	&::before { content: ''; position: absolute; z-index: 3; left: 22px; top: 22px; right: 22px; bottom: 22px;
+	&::before { content: ''; position: absolute; z-index: 4; left: 22px; top: 22px; right: 22px; bottom: 22px;
 		border-style: solid; border-width: 1px; border-color: inherit; border-radius: 50%; background: inherit; }
 	
 	li { position: absolute; box-sizing: border-box; width: 100%; height: 50%;
@@ -120,50 +120,7 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 @include entry-color-scheme( 'idea', hsl(80, 60%, 50%), url(/styles/icons/lightbulb.png) );
 @include entry-color-scheme( 'note', hsl(50, 85%, 50%), url(/styles/icons/note.png) );
 
-/*
-.entry { background-color: hsl(0, 0%, 95%); border-color: hsl(0, 0%, 75%); }
-.entry > header, .entry > aside > ul.actions { background-color: hsl(0, 0%, 75%); }
-.entry::before, .entry > header, .entry > aside > ul.actions { border-color: hsl(0, 0%, 50%); }
-.entry > header:hover, .entry > aside > ul.actions:hover > li:hover { border-color: hsl(0, 0%, 60%); background-color: hsl(0, 0%, 80%); }
-.entry > header:active, .entry > aside > ul.actions:hover > li:active { border-color: hsl(120, 50%, 60%); background-color: hsl(120, 25%, 80%); }
-*/
-
-/* ideas (green) */
-/*
-.entry.idea { background-color: hsl(80, 60%, 95%); border-color: hsl(80, 50%, 75%); }
-.entry.idea > header, .entry.idea > aside > ul.actions { background-color: hsl(80, 50%, 75%); }
-.entry.idea > header { background-image: url(/styles/icons/lightbulb.png); }
-.entry.idea::before, .entry.idea > header, .entry.idea > aside > ul.actions { border-color: hsl(80, 30%, 50%); }
-.entry.idea > header:hover, .entry.idea > aside > ul.actions:hover > li:hover { border-color: hsl(80, 50%, 60%); background-color: hsl(80, 50%, 85%);  }
-.entry.idea > header:active, .entry.idea > aside > ul.actions:hover > li:active { border-color: hsl(120, 50%, 60%); background-color: hsl(120, 25%, 80%); }
-*/
-
-/* notes (yellow) */
-/*
-.entry.note { background-color: hsl(50, 85%, 95%); border-color: hsl(50, 85%, 70%); }
-.entry.note > header, .entry.note > aside > ul.actions { background-color: hsl(50, 85%, 70%); }
-.entry.note > header { background-image: url(/styles/icons/note.png); }
-.entry.note::before, .entry.note > header, .entry.note > aside > ul.actions { border-color: hsl(50, 40%, 60%); }
-.entry.note > header:hover, .entry.note > aside > ul.actions:hover > li:hover { border-color: hsl(50, 90%, 60%); background-color: hsl(50, 90%, 80%); }
-.entry.note > header:active, .entry.note > aside > ul.actions:hover > li:active { border-color: hsl(50, 70%, 60%); background-color: hsl(50, 90%, 85%); }
-*/
-
-
-/*
-article.entry.idea { background-color: #f6fbea; border-color: #c2de88; }
-article.entry.note { background-color: #fbfbeb; border-color: #e9e69b; }
-article.entry > header { margin: 0; padding: 0 0 1px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.1); }
-article.entry > header > h3 { font-size: 1em; margin: -0.5em -0.5em 0 -0.5em; padding: 0.5em 0.5em 0 0.5em; font-weight: bold; }
-article.entry > header > ul { margin: 0; padding: 0 0 0 16px; list-style: none; color: gray; background: left center url(/styles/icons/tags.png) no-repeat; }
-article.entry > header > ul > li { display: inline; }
-article.entry > header > ul > li::after { content: ', '; }
-article.entry > header > ul > li:last-child::after { content: ''; }
-
-section#map.moving { cursor: move; }
-section#map .moving { opacity: 0.5; cursor: move; }
-*/
-/*section#map .movable:hover { background-color: rgba(0, 0, 0, 0.1); }*/
-
+/* resizer and other interactive stuff */
 section#map .resizer { position: absolute; right: 2px; bottom: 2px; width: 10px; height: 10px;
 	background: url(/styles/resizer.png) no-repeat right bottom; cursor: se-resize; }
 
