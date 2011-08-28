@@ -5,7 +5,7 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
 body { overflow: hidden; font-family: ubuntu, sans-serif; color: #333; }
 
 body > nav { position: absolute; z-index: 2; top: 0; right: 0; margin: 0; padding: 0.5em; color: #ddd; background: hsl(0, 0%, 20%); border-radius: 0 0 0 10px; }
-body > section#map { position: absolute; z-index: 1; top: 0; left: 0; width: 100%; height: 100%; background: gray url('/styles/bg.jpg') no-repeat; }
+body > section#map { position: absolute; z-index: 1; top: 0; left: 0; width: 100%; height: 100%; }
 body > section#map .entry { position: absolute; }
 
 /* navigation */
@@ -31,9 +31,6 @@ body > nav > ul {
 	position: absolute; top: 0; left: 0; z-index: 2;
 	margin: 0; padding: 5px; border: none;
 	background-color: inherit; }
-
-.entry > div > *:first-child { margin-top: 0; }
-.entry > div > *:last-child { margin-bottom: 0; }
 
 article.entry { font-size: 0.77em; }
 article.entry > header > h1 { font-size: 1em; }
@@ -86,12 +83,23 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 	li.delete { background: url(/styles/icons/delete.png) no-repeat 50% 16px; }
 }
 
-
 /* states of the radial menu (edit menu, create menu, etc.) */
 .entry > aside > ul.actions:hover > li { display: block; }
 .entry:not(.editing):not(.creating) > aside > ul.actions > li:not(.edit):not(.delete) { display: none; }
 .entry.editing > aside > ul.actions > li:not(.save):not(.close) { display: none; }
 .entry.creating > aside > ul.actions > li:not(.create):not(.abort) { display: none; }
+
+/* content styles for entries */
+.entry > div {
+	& > *:first-child { margin-top: 0; }
+	& > *:last-child { margin-bottom: 0; }
+	
+	ul { margin: 0.5em 0 0.5em 1.5em; padding: 0; }
+	p { margin: 0.5em 0; }
+	a { color: hsl(80, 60%, 20%); }
+	a:hover, a:focus { color: hsl(80, 60%, 30%); }
+	a:active { color: hsl(80, 60%, 50%); }
+}
 
 
 /* color schemes for entries */

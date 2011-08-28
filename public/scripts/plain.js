@@ -251,8 +251,6 @@ $(document).ready(function(){
 			var entry = $(this);
 			var data = entry.data('entry');
 			
-			console.log('content-updated', data);
-			
 			// Build a shape data object for the interacting and interacted events
 			var shape = {left: 0, top: 0, width: 200, height: 100};
 			if (data.headers.shape) {
