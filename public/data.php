@@ -29,6 +29,29 @@ Entry::processor('markdown', function($raw_content, $entry){
 	return Markdown($raw_content);
 });
 
+// A small smiley processor. It's supported by CSS rules that map
+// the classes to style specific image. An image element would simply be
+// to much for a smiley and this way it degrade gracefully within the
+// newsfeed.
+Entry::processor('smilies', function($raw_content, $entry){
+	$smiley_map = array(
+		':)' => 'smile',
+		';)' => 'wink',
+		':o' => 'surprised',
+		':D' => 'grin',
+		'¦D' => 'happy',
+		':P' => 'tongue',
+		'B)' => 'evilgrin',
+		':3' => 'waii',
+		':(' => 'unhappy'
+	);
+	
+	foreach($smiley_map as $smiley => $smiley_class)
+		$raw_content = preg_replace('/(\s)' . preg_quote($smiley) . '/', '$1<span class="smiley ' . $smiley_class . '">' . $smiley . '</span>', $raw_content);
+	
+	return $raw_content;
+});
+
 Entry::route_in(function($id) use($_CONFIG){
 	// Strip the leading id prefix (e.g. '/data'). If the id does not start with the prefix
 	// it is regarded as invalid and we return `false`.

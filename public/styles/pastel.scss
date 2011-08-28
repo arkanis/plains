@@ -13,10 +13,10 @@ body > nav > ul {
 	display: inline-block; margin: 0; padding: 0; list-style: none;
 	
 	li { display: inline-block; width: 16px; height: 16px; text-indent: -10000px; background-repeat: no-repeat; cursor: pointer; }
-	li.new.note { background-image: url(/styles/icons/note_add.png); }
-	li.new.idea { background-image: url(/styles/icons/lightbulb_add.png); }
-	li.new.plain { background-image: url(/styles/icons/map_add.png); }
-	li.reset-zoom { background-image: url(/styles/icons/zoom.png); }
+	li.new.note { background-image: url(icons/note_add.png); }
+	li.new.idea { background-image: url(icons/lightbulb_add.png); }
+	li.new.plain { background-image: url(icons/map_add.png); }
+	li.reset-zoom { background-image: url(icons/zoom.png); }
 	
 	li:hover { background-color: hsla(0, 0%, 100%, 0.25); border-radius: 3px; }
 }
@@ -39,7 +39,7 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 
 .entry > header { display: table; margin: -10px 24px 10px -10px; padding: 0.2em 0.4em 0.2em 25px;
 	border-width: 1px; border-style: solid; border-radius: 5px 0 5px 0;
-	background: url(/styles/icons/map.png) no-repeat 4px 50%; }
+	background: url(icons/map.png) no-repeat 4px 50%; }
 /* the special hover styles will override the color scheme styles because the selector is more specific */
 .entry > header:not(:hover) { border-top-color: transparent !important; border-left-color: transparent !important; border-top-left-radius: 0; }
 
@@ -55,7 +55,7 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 .entry > aside > ul.actions {
 	position: absolute; right: 0; top: 0; width: 24px; height: 24px; margin: 0; padding: 0;
 	list-style: none; border-width: 0 0 1px 1px; border-style: solid; border-radius: 0 0 0 5px;
-	background: url(/styles/icons/wrench.png) no-repeat center center;
+	background: url(icons/wrench.png) no-repeat center center;
 	
 	li { display: none; }
 }
@@ -75,12 +75,12 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 	li.create, li.edit, li.save { top: 0; left: 0; border-radius: 50% 50% 0 0 / 100% 100% 0 0; height: 37px; }
 	li.abort, li.close, li.delete { bottom: 0; left: 0; border-radius: 0 0 50% 50% / 0 0 100% 100%; }
 	
-	li.create { background: url(/styles/icons/disk.png) no-repeat 50% 3px; }
-	li.abort { background: url(/styles/icons/cross.png) no-repeat 50% 16px; }
-	li.edit { background: url(/styles/icons/pencil.png) no-repeat 50% 3px; }
-	li.save { background: url(/styles/icons/disk.png) no-repeat 50% 3px; }
-	li.close { background: url(/styles/icons/cross.png) no-repeat 50% 16px; }
-	li.delete { background: url(/styles/icons/delete.png) no-repeat 50% 16px; }
+	li.create { background: url(icons/disk.png) no-repeat 50% 3px; }
+	li.abort { background: url(icons/cross.png) no-repeat 50% 16px; }
+	li.edit { background: url(icons/pencil.png) no-repeat 50% 3px; }
+	li.save { background: url(icons/disk.png) no-repeat 50% 3px; }
+	li.close { background: url(icons/cross.png) no-repeat 50% 16px; }
+	li.delete { background: url(icons/delete.png) no-repeat 50% 16px; }
 }
 
 /* states of the radial menu (edit menu, create menu, etc.) */
@@ -94,6 +94,7 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 	& > *:first-child { margin-top: 0; }
 	& > *:last-child { margin-bottom: 0; }
 	
+	h1 { font-size: 1.25em; margin: 0.5em 0; padding: 0; }
 	ul { margin: 0.5em 0 0.5em 1.5em; padding: 0; }
 	p { margin: 0.5em 0; }
 	a { color: hsl(80, 60%, 20%); }
@@ -124,9 +125,9 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 	}
 }
 
-@include entry-color-scheme( 'entry', hsl(0, 0%, 50%), url(/styles/icons/map.png) );
-@include entry-color-scheme( 'idea', hsl(80, 60%, 50%), url(/styles/icons/lightbulb.png) );
-@include entry-color-scheme( 'note', hsl(50, 85%, 50%), url(/styles/icons/note.png) );
+@include entry-color-scheme( 'entry', hsl(0, 0%, 50%), url(icons/map.png) );
+@include entry-color-scheme( 'idea', hsl(80, 60%, 50%), url(icons/lightbulb.png) );
+@include entry-color-scheme( 'note', hsl(50, 85%, 50%), url(icons/note.png) );
 
 /* resizer and other interactive stuff */
 section#map .resizer { position: absolute; right: 2px; bottom: 2px; width: 10px; height: 10px;
@@ -134,3 +135,15 @@ section#map .resizer { position: absolute; right: 2px; bottom: 2px; width: 10px;
 
 #region-draft { position: absolute; background: hsl(0, 0%, 85%); border-radius: 5px; box-shadow: 0 0 10px black; z-index: 10; }
 #region-draft { -webkit-box-shadow: 0 0 10px black; }
+
+/* Smileys */
+span.smiley { display: inline-block; width: 16px; height: 16px; text-indent: -10000px; background-repeat: no-repeat; background-position: center center; }
+span.smiley.smile { background-image: url(smilies/emoticon_smile.png); }
+span.smiley.wink { background-image: url(smilies/emoticon_wink.png); }
+span.smiley.surprised { background-image: url(smilies/emoticon_surprised.png); }
+span.smiley.grin { background-image: url(smilies/emoticon_grin.png); }
+span.smiley.happy { background-image: url(smilies/emoticon_happy.png); }
+span.smiley.tongue { background-image: url(smilies/emoticon_tongue.png); }
+span.smiley.evilgrin { background-image: url(smilies/emoticon_evilgrin.png); }
+span.smiley.waii { background-image: url(smilies/emoticon_waii.png); }
+span.smiley.unhappy { background-image: url(smilies/emoticon_unhappy.png); }

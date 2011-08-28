@@ -51,13 +51,13 @@ body > nav > ul {
     background-repeat: no-repeat;
     cursor: pointer; }
   body > nav > ul li.new.note {
-    background-image: url(/styles/icons/note_add.png); }
+    background-image: url(icons/note_add.png); }
   body > nav > ul li.new.idea {
-    background-image: url(/styles/icons/lightbulb_add.png); }
+    background-image: url(icons/lightbulb_add.png); }
   body > nav > ul li.new.plain {
-    background-image: url(/styles/icons/map_add.png); }
+    background-image: url(icons/map_add.png); }
   body > nav > ul li.reset-zoom {
-    background-image: url(/styles/icons/zoom.png); }
+    background-image: url(icons/zoom.png); }
   body > nav > ul li:hover {
     background-color: rgba(255, 255, 255, 0.25);
     border-radius: 3px; }
@@ -111,7 +111,7 @@ article.entry > header > ul.tags {
   border-width: 1px;
   border-style: solid;
   border-radius: 5px 0 5px 0;
-  background: url(/styles/icons/map.png) no-repeat 4px 50%; }
+  background: url(icons/map.png) no-repeat 4px 50%; }
 
 /* the special hover styles will override the color scheme styles because the selector is more specific */
 .entry > header:not(:hover) {
@@ -155,7 +155,7 @@ article.entry > header > ul.tags {
   border-width: 0 0 1px 1px;
   border-style: solid;
   border-radius: 0 0 0 5px;
-  background: url(/styles/icons/wrench.png) no-repeat center center; }
+  background: url(icons/wrench.png) no-repeat center center; }
   .entry > aside > ul.actions li {
     display: none; }
 
@@ -204,17 +204,17 @@ article.entry > header > ul.tags {
     left: 0;
     border-radius: 0 0 50% 50%/0 0 100% 100%; }
   .entry > aside > ul.actions:hover li.create {
-    background: url(/styles/icons/disk.png) no-repeat 50% 3px; }
+    background: url(icons/disk.png) no-repeat 50% 3px; }
   .entry > aside > ul.actions:hover li.abort {
-    background: url(/styles/icons/cross.png) no-repeat 50% 16px; }
+    background: url(icons/cross.png) no-repeat 50% 16px; }
   .entry > aside > ul.actions:hover li.edit {
-    background: url(/styles/icons/pencil.png) no-repeat 50% 3px; }
+    background: url(icons/pencil.png) no-repeat 50% 3px; }
   .entry > aside > ul.actions:hover li.save {
-    background: url(/styles/icons/disk.png) no-repeat 50% 3px; }
+    background: url(icons/disk.png) no-repeat 50% 3px; }
   .entry > aside > ul.actions:hover li.close {
-    background: url(/styles/icons/cross.png) no-repeat 50% 16px; }
+    background: url(icons/cross.png) no-repeat 50% 16px; }
   .entry > aside > ul.actions:hover li.delete {
-    background: url(/styles/icons/delete.png) no-repeat 50% 16px; }
+    background: url(icons/delete.png) no-repeat 50% 16px; }
 
 /* states of the radial menu (edit menu, create menu, etc.) */
 .entry > aside > ul.actions:hover > li {
@@ -234,6 +234,10 @@ article.entry > header > ul.tags {
   margin-top: 0; }
 .entry > div > *:last-child {
   margin-bottom: 0; }
+.entry > div h1 {
+  font-size: 1.25em;
+  margin: 0.5em 0;
+  padding: 0; }
 .entry > div ul {
   margin: 0.5em 0 0.5em 1.5em;
   padding: 0; }
@@ -261,7 +265,7 @@ article.entry > header > ul.tags {
     border-color: #666666;
     background-color: #a6a6a6; }
   .entry.entry > header {
-    background-image: url(/styles/icons/map.png); }
+    background-image: url(icons/map.png); }
 
 .entry.idea {
   background-color: #f5faeb;
@@ -277,7 +281,7 @@ article.entry > header > ul.tags {
     border-color: #7aa329;
     background-color: #b8db70; }
   .entry.idea > header {
-    background-image: url(/styles/icons/lightbulb.png); }
+    background-image: url(icons/lightbulb.png); }
 
 .entry.note {
   background-color: #fdf9e7;
@@ -293,7 +297,7 @@ article.entry > header > ul.tags {
     border-color: #bda00f;
     background-color: #f2d85a; }
   .entry.note > header {
-    background-image: url(/styles/icons/note.png); }
+    background-image: url(icons/note.png); }
 
 /* resizer and other interactive stuff */
 section#map .resizer {
@@ -314,3 +318,39 @@ section#map .resizer {
 
 #region-draft {
   -webkit-box-shadow: 0 0 10px black; }
+
+/* Smileys */
+span.smiley {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  text-indent: -10000px;
+  background-repeat: no-repeat;
+  background-position: center center; }
+
+span.smiley.smile {
+  background-image: url(smilies/emoticon_smile.png); }
+
+span.smiley.wink {
+  background-image: url(smilies/emoticon_wink.png); }
+
+span.smiley.surprised {
+  background-image: url(smilies/emoticon_surprised.png); }
+
+span.smiley.grin {
+  background-image: url(smilies/emoticon_grin.png); }
+
+span.smiley.happy {
+  background-image: url(smilies/emoticon_happy.png); }
+
+span.smiley.tongue {
+  background-image: url(smilies/emoticon_tongue.png); }
+
+span.smiley.evilgrin {
+  background-image: url(smilies/emoticon_evilgrin.png); }
+
+span.smiley.waii {
+  background-image: url(smilies/emoticon_waii.png); }
+
+span.smiley.unhappy {
+  background-image: url(smilies/emoticon_unhappy.png); }
