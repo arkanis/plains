@@ -94,8 +94,13 @@ article.entry > header > ul.tags { font-size: 0.9em; }
 	& > *:first-child { margin-top: 0; }
 	& > *:last-child { margin-bottom: 0; }
 	
-	h1 { font-size: 1.25em; margin: 0.5em 0; padding: 0; }
-	ul { margin: 0.5em 0 0.5em 1.5em; padding: 0; }
+	h1, h2, h3, h4, h5, h6 { margin: 0.5em 0 0.5em 0.5em; padding: 0; }
+	h1 { font-size: 1.25em; }
+	h2 { font-size: 1em; }
+	h3 { font-size: 1em; font-weight: normal; }
+	
+	ul, ol { margin: 0.5em 0 0.5em 1.5em; padding: 0; }
+	li > ul, li > ol { margin: 0.25em 0 0.25em 1.5em; }
 	p { margin: 0.5em 0; }
 	a { color: hsl(80, 60%, 20%); }
 	a:hover, a:focus { color: hsl(80, 60%, 30%); }

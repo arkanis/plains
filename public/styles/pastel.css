@@ -234,13 +234,21 @@ article.entry > header > ul.tags {
   margin-top: 0; }
 .entry > div > *:last-child {
   margin-bottom: 0; }
-.entry > div h1 {
-  font-size: 1.25em;
-  margin: 0.5em 0;
+.entry > div h1, .entry > div h2, .entry > div h3, .entry > div h4, .entry > div h5, .entry > div h6 {
+  margin: 0.5em 0 0.5em 0.5em;
   padding: 0; }
+.entry > div h1 {
+  font-size: 1.25em; }
+.entry > div h2 {
+  font-size: 1em; }
+.entry > div h3 {
+  font-size: 1em;
+  font-weight: normal; }
 .entry > div ul {
   margin: 0.5em 0 0.5em 1.5em;
   padding: 0; }
+.entry > div li > ul, .entry > div li > ol {
+  margin: 0.25em 0 0.25em 1.5em; }
 .entry > div p {
   margin: 0.5em 0; }
 .entry > div a {
