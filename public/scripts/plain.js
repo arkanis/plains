@@ -240,6 +240,10 @@ $(document).ready(function(){
 			var data = entry.data('entry');
 			var shape = entry.data('shape');
 			
+			// Abort if this is a new entry that has not been saved yet
+			if (!entry.attr('id'))
+				return false;
+			
 			// Construct a new shape header and send it to the server
 			shape_header = [
 				Math.round(shape.left), Math.round(shape.top),
