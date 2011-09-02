@@ -1,0 +1,9 @@
+RewriteEngine	on
+RewriteBase	/projects/plains
+
+# Block access to everything the client does not need
+RewriteRule	^(include|logs|.git)(/.*)?$	[forbidden]
+
+RewriteRule	^$	public/index.html	[redirect=permanent,last]
+RewriteRule	^public/data$	public/data.php	[last,qsappend]
+RewriteRule	^public/data(/.*)$	public/data.php?id=$1	[last,qsappend]
