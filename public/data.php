@@ -11,11 +11,9 @@
  */
 
 $_CONFIG = array(
-	'id_prefix' => '/data',
 	'data_dir' => '../data',
 	'plain_file' => '.plain'
 );
-
 
 //
 // Configure the Entry class
@@ -53,15 +51,8 @@ Entry::processor('smilies', function($raw_content, $entry){
 });
 
 Entry::route_in(function($id) use($_CONFIG){
-	// Strip the leading id prefix (e.g. '/data'). If the id does not start with the prefix
-	// it is regarded as invalid and we return `false`.
-	if ( substr($id, 0, strlen($_CONFIG['id_prefix'])) == $_CONFIG['id_prefix'] )
-		$path = substr($id, strlen($_CONFIG['id_prefix']));
-	else
-		return false;
-	
 	// Prepend the data directory
-	$path = $_CONFIG['data_dir'] . $path;
+	$path = $_CONFIG['data_dir'] . $id;
 	
 	// Make sure the path does not escape out of the data directory (if so it's invalid
 	// and return `false`)
@@ -89,11 +80,11 @@ Entry::route_out(null, function($path, $entry) use($_CONFIG){
 	else
 		return null;
 	
+	// For plain files the ID is just the directory, not the .plain file
 	if ( pathinfo($path, PATHINFO_EXTENSION) == 'plain')
 		$id = dirname($id);
 	
-	// Add the id prefix to finish the id
-	return $_CONFIG['id_prefix'] . $id;
+	return $id;
 });
 
 
@@ -168,7 +159,7 @@ if ( $_SERVER['REQUEST_METHOD'] == 'POST' )
 	$entry_headers['Created'] = strftime('%F %T');
 	
 	// Determine the path for the new entry
-	$parent_id = isset($_GET['id']) ? $_GET['id'] : '/data';
+	$parent_id = isset($_GET['id']) ? $_GET['id'] : '';
 	$title = Entry::parameterize($entry_headers['Title']);
 	$path = Entry::translate_id_to_path($parent_id . '/' . $title);
 	

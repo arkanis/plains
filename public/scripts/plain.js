@@ -1,4 +1,10 @@
 /**
+ * Some kind of small config. The data path is the path to the directory that functions as AJAX
+ * interface for the entry data.
+ */
+var data_path = './data';
+
+/**
  * Infrastructure event handlers that take care of the low level element movement logic.
  * An element just has to have the 'movable' class.
  * 
@@ -91,7 +97,7 @@ $(document).ready(function(){
 				clearTimeout(storage_countdown);
 			
 			storage_countdown = setTimeout(function(){
-				jQuery.ajax('/data', { type: 'PUT', data: JSON.stringify({pos: [view.x, view.y], scale: view.scale}) });
+				jQuery.ajax('./data', { type: 'PUT', data: JSON.stringify({pos: [view.x, view.y], scale: view.scale}) });
 				map.data('storage-countdown', null);
 			}, 2000);
 			map.data('storage-countdown', storage_countdown);
@@ -239,7 +245,7 @@ $(document).ready(function(){
 				Math.round(shape.left), Math.round(shape.top),
 				Math.round(shape.width), Math.round(shape.height)
 			].join(', ');
-			$.ajax(data.id, {
+			$.ajax('./data' + data.id, {
 				type: 'PUT',
 				data: JSON.stringify({headers: {'Shape': shape_header}})
 			});
@@ -379,7 +385,7 @@ $(document).ready(function(){
 		}
 	}
 	
-	$.ajax('/data', {success: function(data){
+	$.ajax('./data', {success: function(data){
 		// Apply the stored view data (position and scale)
 		$('#map').data('view', {
 			x: parseFloat(data.pos[0]),
@@ -420,7 +426,7 @@ $(document).ready(function(){
 			textarea.show().focus();
 			entry.trigger('interacting');
 		} else {
-			jQuery.ajax(entry.attr('id'), {dataType: 'json', success: function(data){
+			jQuery.ajax('./data' + entry.attr('id'), {dataType: 'json', success: function(data){
 				$('<textarea>').val(data.raw).appendTo(entry).show().focus();
 				entry.trigger('interacting');
 			}});
@@ -431,7 +437,7 @@ $(document).ready(function(){
 		var entry = $(this).closest('.entry');
 		entry.find('> aside > .actions > .close').click();
 		
-		jQuery.ajax(entry.attr('id'), {
+		jQuery.ajax('./data' + entry.attr('id'), {
 			type: 'PUT', data: JSON.stringify({raw: entry.find('> textarea').val()}),
 			dataType: 'json', success: function(data){
 				entry.data('entry', data).trigger('content-updated');
@@ -454,9 +460,9 @@ $(document).ready(function(){
 		var parent_id = plain.attr('id');
 		// If the section element is the map root use the root plain as parent
 		if ( parent_id == 'map' )
-			parent_id = '/data';
+			parent_id = '';
 		
-		jQuery.ajax(parent_id, {
+		jQuery.ajax('./data' + parent_id, {
 			type: 'POST', data: JSON.stringify({
 				raw: entry.find('> textarea').val(),
 				type: entry.data('entry').type,
@@ -479,7 +485,7 @@ $(document).ready(function(){
 		var entry = $(this).closest('.entry');
 		var id = entry.attr('id');
 		
-		jQuery.ajax(id, {type: 'DELETE', success: function(data, status, xhr){
+		jQuery.ajax('./data' + id, {type: 'DELETE', success: function(data, status, xhr){
 			entry.remove();
 		}});
 	});
