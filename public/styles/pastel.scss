@@ -4,6 +4,8 @@ section, article, header { display: block; }
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
 body { overflow: hidden; font-family: ubuntu, sans-serif; color: #333; }
 
+body.drawing { cursor: crosshair; }
+
 body > nav { position: absolute; z-index: 2; top: 0; right: 0; margin: 0; padding: 0.5em; color: #ddd; background: hsl(0, 0%, 20%); border-radius: 0 0 0 10px; }
 body > section#map { position: absolute; z-index: 1; top: 0; left: 0; width: 100%; height: 100%; }
 body > section#map .entry { position: absolute; }

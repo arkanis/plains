@@ -58,6 +58,7 @@
 			  elem.data('mouse-pos', null);
 		  return false;
 	  }
+	  
   }).keydown(function(evt) {
     
     var keys = {      
@@ -673,7 +674,11 @@
 			  return false;
 		  };
 		
-		  $('body').one('mousedown', function(event){
+		  
+	    $('body').addClass('drawing');
+		
+		  $('body').one('mousedown', function(event){		  
+		  
 			  // Figure out in which element the new stuff should be put
 			  var target_elem = $(event.target).closest('section');
 			  // If we hit the body element use the map (root plain) as container
@@ -693,6 +698,7 @@
 		  $('body').one('mouseup', function(event){
 			  // Unbind the movement handler and use the mouseup event as a final mouse move.
 			  $('body').unbind('mousemove', movement_handler);
+			  $('body').removeClass('drawing');
 			  movement_handler(event);
 			
 			  var indicator = $('#region-draft');
