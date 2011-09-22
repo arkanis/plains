@@ -69,7 +69,24 @@ body #editor {
   width: 100%;
   height: 100%;
   z-index: 10;
-  background: rgba(50, 50, 50, 0.9); }
+  background-color: rgba(50, 50, 50, 0.9); }
+  body #editor.note h1 {
+    background-image: url(icons/note.png); }
+  body #editor.idea h1 {
+    background-image: url(icons/lightbulb.png); }
+  body #editor.plain h1 {
+    background-image: url(icons/map.png); }
+  body #editor h1 {
+    position: absolute;
+    top: 5px;
+    left: 10px;
+    z-index: 11;
+    color: #fff;
+    font-weight: normal;
+    padding: 0 0 0 25px;
+    margin: 0;
+    background-position: left center;
+    background-repeat: no-repeat; }
   body #editor nav {
     display: block;
     position: absolute;
