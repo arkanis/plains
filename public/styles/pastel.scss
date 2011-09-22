@@ -22,6 +22,44 @@ body > nav > ul {
 }
 
 
+/* editor */
+body #editor {
+
+	position: absolute;
+	display: none;
+	width: 100%;
+	height: 100%;
+	z-index: 10;
+	background: rgba(50,50,50,0.9);
+	
+	
+	nav {
+	  display: block;
+	  position: absolute;
+	  top: 0;
+	  right: 0;
+	  z-index: 11;
+	  padding: 5px;
+	
+	  ul { padding: 0; margin: 0; }
+	
+	  li { display: inline-block; width: 16px; height: 16px; padding: 5px; text-indent: -10000px; cursor: pointer; }
+	  li:hover { }
+	  
+	  li.save { background: url(icons/disk.png) no-repeat center center; }
+	  li.close { background: url(icons/cross.png) no-repeat center center; }	  
+	}
+	textarea {
+	  position:absolute;
+	  top: 40px;
+	  bottom: 10px;
+	  left: 20px;
+	  right: 20px;
+	  
+	  padding: 5px; border: none;
+	}
+}
+
 .entry { position: relative; z-index: 1; margin: 0; padding: 10px;
 	border-radius: 5px; border-width: 3px; border-style: solid; }
 .entry::before { content: ''; position: absolute; z-index: -1; top: 0; left: 0; bottom: 0; right: 0;
