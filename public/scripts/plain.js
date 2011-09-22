@@ -194,9 +194,112 @@ $(document).ready(function(){
 			map.trigger('interacted');
 		}
 	});
-	
+	 
 	var map_node = $('#map').get(0);
 	
+	
+	/** 
+	 * Editor
+	 */
+	
+	$('#editor').bind({
+	  
+	  edit: function(evt, entry) {
+	  
+	    var editor = $(this),
+	        entry = $(entry);
+	    
+	    editor.data('editing', entry);
+	    
+	    jQuery.ajax('./data' + entry.attr('id'), {dataType: 'json', success: function(data){
+				editor.find('textarea').val(data.raw);
+				entry.trigger('interacting');				
+  	    editor.show().find('textarea').focus();
+			}});			
+			
+	  },
+	  
+	  save: function(evt) {
+	  
+	    var editor = $(this),
+	        entry = editor.data('editing');
+		
+		  jQuery.ajax('./data' + entry.attr('id'), {
+			  type: 'PUT', data: JSON.stringify({raw: editor.find('textarea').val()}),
+			  dataType: 'json', success: function(data){
+				  entry.data('entry', data).trigger('content-updated');
+				  editor.trigger('close');
+			  }
+		  });
+	  
+	  },
+	  
+	  close: function(evt) {
+	      $(this).hide();
+	  }
+	
+	});
+	
+	// initialize texteditor
+	$(function() {
+	  var editor = $('#editor');
+	  editor.data('textarea', ExtendedTextarea(editor.find('textarea')[0]));	  	  
+	});
+	 
+	$('#editor textarea').bind({
+	
+	
+	  keydown: function(evt) {
+	  
+	    var keys = {
+	      TAB: 9,
+	      ESC: 27,
+	      S: 83,
+	      ENTER: 13
+	    };
+	    
+	    var editor = $('#editor'),
+	        textarea = editor.data('textarea');
+	         
+	  	  
+	    switch(evt.keyCode) {
+	    
+	      case keys.TAB:	        
+	        
+	        // backtab
+	        if(evt.shiftKey) {        
+	          textarea.applyMultilineTabs(true);
+	          
+	        // normal tab
+	        } else {	          
+	          if(textarea.hasMultilineSelection()) {
+              textarea.applyMultilineTabs(false);
+	          } else {
+	            // we only have a cursor
+	            textarea.insertTab();
+	          }	        
+	        }
+	        return false;   
+	      
+	      case keys.ESC:
+	        $('#editor').trigger('close');
+	        return false;
+	      
+	      // overrides default behaviour (save document)
+	      case keys.S:
+	        if(!!evt.ctrlKey) {
+	          $('#editor').trigger('save');
+	          return false;
+	        }
+	        break;
+	       
+	    }
+	  }
+	
+	}); 
+	
+	$('#editor .save').click(function() { $('#editor').trigger('save'); return false; });	  
+  $('#editor .close').click(function() { $('#editor').trigger('close'); return false; });
 	
 	/**
 	 * Entry interface:
@@ -415,45 +518,17 @@ $(document).ready(function(){
 			if (xhr.status >= 400)
 				alert('AJAX request failed with status ' + xhr.status + "\n" + xhr.responseText);
 		}
+	});	
+	
+	$('.entry', map_node).live('dblclick', function(){
+		$('#editor').trigger('edit', this);
+		return false;
 	});
-	
-	
 	
 	$('.entry > aside > .actions > .edit', map_node).live('click', function(){
-		var entry = $(this).closest('.entry');
-		entry.addClass('editing').find('> div').hide();
-		
-		// If an textarea with old data is still present show it, otherwise request
-		// the original data and show that.
-		var textarea = entry.find('> textarea');
-		if (textarea.size() > 0) {
-			textarea.show().focus();
-			entry.trigger('interacting');
-		} else {
-			jQuery.ajax('./data' + entry.attr('id'), {dataType: 'json', success: function(data){
-				$('<textarea>').val(data.raw).appendTo(entry).show().focus();
-				entry.trigger('interacting');
-			}});
-		}
-	});
-	
-	$('.entry > aside > .actions > .save', map_node).live('click', function(){
-		var entry = $(this).closest('.entry');
-		entry.find('> aside > .actions > .close').click();
-		
-		jQuery.ajax('./data' + entry.attr('id'), {
-			type: 'PUT', data: JSON.stringify({raw: entry.find('> textarea').val()}),
-			dataType: 'json', success: function(data){
-				entry.data('entry', data).trigger('content-updated');
-			}
-		});
-	});
-	
-	$('.entry > aside > .actions > .close', map_node).live('click', function(){
-		$(this).closest('.entry').
-			removeClass('editing').
-			find('> textarea').hide().end().
-			find('> div').show();
+		var entry = $(this).closest('.entry');		
+		$('#editor').trigger('edit', entry);
+		return false;
 	});
 	
 	
@@ -597,3 +672,80 @@ $(document).ready(function(){
 		return false;
 	});
 });
+
+/**
+ * Helperclass to provide textarea with additional functionality
+ */
+function ExtendedTextarea(original) {
+    
+    var options = {
+      tab: "  "
+    };
+
+    var F = function() {}
+    F.prototype = original;	
+    var self = new F();
+
+    self.hasSelection = function() {
+        return self.getSelection() !== "";
+    };
+    
+    self.hasMultilineSelection = function() {
+      return self.getSelection().match(/\n/);
+    };
+    
+    self.getSelection = function() {
+      return original.value.slice(original.selectionStart, original.selectionEnd);
+    };
+    
+    self.insertTab = function() {
+            
+      var value = original.value,
+          position = original.selectionStart;
+      
+      var before = value.slice(0, position),
+          after = value.slice(position, value.length);
+          
+      original.value = before + options.tab + after;
+      
+      // reset selection	      
+      var selection = before.length + options.tab.length;
+      self.setSelection(selection, selection);
+    };
+  
+    self.setSelection = function(start, end) {
+      original.selectionStart = start;
+      original.selectionEnd = end;
+    };
+  
+    self.applyMultilineTabs = function(remove) {
+    
+      var value = original.value,
+          previousSelection = original.selectionStart;
+      
+      var start = value.slice(0, original.selectionStart).lastIndexOf("\n"),
+          end = original.selectionEnd;
+         
+      // if start is -1 there is no linebreak before, so we use 0
+      if(start === -1) {
+        start = 0;
+        // we have to indent the first line too...
+      }
+      
+      var before = value.slice(0, start),	          
+          part = value.slice(start, end),
+          after = value.slice(end, value.length);	      
+      
+      if(!remove) 
+        part = part.replace(/\n/g, "\n" + options.tab);
+      else
+        part = part.replace(RegExp("\n" + options.tab, "g"), "\n");	        
+      	      
+      original.value = before + part + after;   
+      
+      // restore selection - FIXME
+      self.setSelection(previousSelection, before.length + part.length); 	        
+    };
+    
+    return self;	
+}
