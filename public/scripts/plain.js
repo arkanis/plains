@@ -243,8 +243,7 @@ $(document).ready(function(){
 	// initialize texteditor
 	$(function() {
 	  var editor = $('#editor');
-	  
-	  	  
+	  editor.data('textarea', ExtendedTextarea(editor.find('textarea')[0]));	  	  
 	});
 	 
 	$('#editor textarea').bind({
@@ -259,73 +258,9 @@ $(document).ready(function(){
 	      ENTER: 13
 	    };
 	    
-	    var options = {
-	      tab: "  "
-	    };
-	    
-	    var textarea = this;
-	  
-	    function hasSelection(textarea) {
-	      return getSelection(textarea) !== "";
-	    }
-	    
-	    function hasMultilineSelection(textarea) {
-	      return getSelection(textarea).match(/\n/);
-	    }
-	    
-	    function getSelection(textarea) {
-        return textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
-	    }
-	    
-	    function insertTab(textarea, position) {
-	    
-	      var value = textarea.value;
-	      
-	      var before = value.slice(0, position),
-	          after = value.slice(position, value.length);
-	          
-	      textarea.value = before + options.tab + after;
-	      
-	      // reset selection	      
-	      var selection = before.length + options.tab.length;
-	      setSelection(textarea, selection, selection);
-	    }
-	    
-	    function setSelection(textarea, start, end) {
-        textarea.selectionStart = start;
-        textarea.selectionEnd = end;
-	    }
-	    
-	    function applyMultilineTabs(textarea, remove) {
-	    
-	      var value = textarea.value,
-	          previousSelection = textarea.selectionStart;
-	      
-	      var start = value.slice(0, textarea.selectionStart).lastIndexOf("\n"),
-	          end = textarea.selectionEnd;
+	    var editor = $('#editor'),
+	        textarea = editor.data('textarea');
 	         
-	      // if start is -1 there is no linebreak before, so we use 0
-	      if(start === -1) {
-	        start = 0;
-	        // we have to indent the first line too...
-	      }
-	      
-	      var before = value.slice(0, start),	          
-	          part = value.slice(start, end),
-	          after = value.slice(end, value.length);	      
-	      
-	      if(!remove) 
-	        part = part.replace(/\n/g, "\n" + options.tab);
-	      else
-	        part = part.replace(RegExp("\n" + options.tab, "g"), "\n");	        
-	      	      
-	      textarea.value = before + part + after;   
-	      
-	      // restore selection - FIXME
-	      setSelection(textarea, previousSelection, before.length + part.length); 
-	      
-	    }
-	    
 	  	  
 	    switch(evt.keyCode) {
 	    
@@ -333,15 +268,15 @@ $(document).ready(function(){
 	        
 	        // backtab
 	        if(evt.shiftKey) {        
-	          applyMultilineTabs(textarea, true);
+	          textarea.applyMultilineTabs(true);
 	          
 	        // normal tab
 	        } else {	          
-	          if(hasMultilineSelection(textarea)) {
-              applyMultilineTabs(textarea, false);
+	          if(textarea.hasMultilineSelection()) {
+              textarea.applyMultilineTabs(false);
 	          } else {
 	            // we only have a cursor
-	            insertTab(textarea, textarea.selectionStart);
+	            textarea.insertTab();
 	          }	        
 	        }
 	        return false;   
@@ -737,3 +672,80 @@ $(document).ready(function(){
 		return false;
 	});
 });
+
+/**
+ * Helperclass to provide textarea with additional functionality
+ */
+function ExtendedTextarea(original) {
+    
+    var options = {
+      tab: "  "
+    };
+
+    var F = function() {}
+    F.prototype = original;	
+    var self = new F();
+
+    self.hasSelection = function() {
+        return self.getSelection() !== "";
+    };
+    
+    self.hasMultilineSelection = function() {
+      return self.getSelection().match(/\n/);
+    };
+    
+    self.getSelection = function() {
+      return original.value.slice(original.selectionStart, original.selectionEnd);
+    };
+    
+    self.insertTab = function() {
+            
+      var value = original.value,
+          position = original.selectionStart;
+      
+      var before = value.slice(0, position),
+          after = value.slice(position, value.length);
+          
+      original.value = before + options.tab + after;
+      
+      // reset selection	      
+      var selection = before.length + options.tab.length;
+      self.setSelection(selection, selection);
+    };
+  
+    self.setSelection = function(start, end) {
+      original.selectionStart = start;
+      original.selectionEnd = end;
+    };
+  
+    self.applyMultilineTabs = function(remove) {
+    
+      var value = original.value,
+          previousSelection = original.selectionStart;
+      
+      var start = value.slice(0, original.selectionStart).lastIndexOf("\n"),
+          end = original.selectionEnd;
+         
+      // if start is -1 there is no linebreak before, so we use 0
+      if(start === -1) {
+        start = 0;
+        // we have to indent the first line too...
+      }
+      
+      var before = value.slice(0, start),	          
+          part = value.slice(start, end),
+          after = value.slice(end, value.length);	      
+      
+      if(!remove) 
+        part = part.replace(/\n/g, "\n" + options.tab);
+      else
+        part = part.replace(RegExp("\n" + options.tab, "g"), "\n");	        
+      	      
+      original.value = before + part + after;   
+      
+      // restore selection - FIXME
+      self.setSelection(previousSelection, before.length + part.length); 	        
+    };
+    
+    return self;	
+}
