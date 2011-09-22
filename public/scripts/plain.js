@@ -58,6 +58,47 @@
 			  elem.data('mouse-pos', null);
 		  return false;
 	  }
+  }).keydown(function(evt) {
+    
+    var keys = {      
+      LEFT: 37,
+      UP: 38,
+      RIGHT: 39,
+      DOWN: 40,
+      PLUS: 107,
+      MINUS: 109
+    };
+    
+    var map = $('#map');
+    
+    switch(evt.keyCode) {
+    
+      case keys.LEFT:
+        map.trigger('movement', [25, 0]);                 
+        break;
+    
+      case keys.RIGHT:
+        map.trigger('movement', [-25, 0]);
+        break;
+      
+      case keys.UP:
+        map.trigger('movement', [0, 25]);
+        break;
+        
+      case keys.DOWN:
+        map.trigger('movement', [0, -25]);
+        break;
+        
+      case keys.PLUS:
+        map.data('view').scale = map.data('view').scale * 1.1;
+			  map.trigger('interacted');
+        break;
+        
+      case keys.MINUS:
+        map.data('view').scale = map.data('view').scale / 1.1;
+			  map.trigger('interacted');
+        break;
+    }    
   });
 
   $(document).ready(function(){
@@ -207,7 +248,7 @@
 	   // initialize texteditor
 	  (function() {
 	    var editor = $('#editor');
-	    editor.data('textarea', $(ExtendedTextarea(editor.find('textarea')[0])));	  	  
+	    editor.data('textarea', ExtendedTextarea(editor.find('> textarea')[0]));	  	  
 	  })();
 	
 	  $('#editor').bind({
@@ -693,7 +734,7 @@
 
       var F = function() {}
       F.prototype = original;	
-      var self = new F();
+      var self = $(new F());
 
       self.hasSelection = function() {
           return self.getSelection() !== "";
