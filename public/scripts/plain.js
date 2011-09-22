@@ -201,6 +201,11 @@ $(document).ready(function(){
 	/** 
 	 * Editor
 	 */
+	 // initialize texteditor
+	(function() {
+	  var editor = $('#editor');
+	  editor.data('textarea', ExtendedTextarea(editor.find('textarea')[0]));	  	  
+	})();
 	
 	$('#editor').bind({
 	  
@@ -238,12 +243,6 @@ $(document).ready(function(){
 	      $(this).hide();
 	  }
 	
-	});
-	
-	// initialize texteditor
-	$(function() {
-	  var editor = $('#editor');
-	  editor.data('textarea', ExtendedTextarea(editor.find('textarea')[0]));	  	  
 	});
 	 
 	$('#editor textarea').bind({
