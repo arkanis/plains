@@ -10,8 +10,12 @@
  * 	DELETE	/data/id	→	delete entry
  */
 
+
+// Allow other domains to use AJAX requests on this domain
+header('Access-Control-Allow-Origin: * ');
+
 $_CONFIG = array(
-	'data_dir' => '../data',
+	'data_dir' => '../data/' . basename($_GET['user']),
 	'plain_file' => '.plain'
 );
 
