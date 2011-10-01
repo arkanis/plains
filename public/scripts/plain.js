@@ -281,9 +281,10 @@
 			
 			save: function(evt) {
 			
-				var editor = $(this),
-						entry = editor.data('editing');
-		
+				var editor = $(this);
+				var entry = editor.data('editing');
+				
+				
 				// update
 				if(!entry.hasClass('creating'))		
 					jQuery.ajax(entry.attr('id'), {
@@ -291,7 +292,7 @@
 						data: JSON.stringify({raw: editor.data('textarea').val()}),
 						dataType: 'json', 
 						success: function(data){
-							data.id = entry.attr('id') + data.id;
+							data.id = entry.data('origin') + data.id;
 							entry.data('entry', data).trigger('content-updated');
 							editor.trigger('close');
 						}
@@ -299,7 +300,6 @@
 					
 				// create
 				else {
-					
 					var parent_entry = entry.parents('section').eq(0);
 					
 					if (parent_entry.data('entry') && parent_entry.data('entry').headers.origin)
@@ -320,7 +320,9 @@
 						}), 
 						success: function(data){
 							data.id = parent_id + data.id;
-							entry.removeClass('creating').data('entry', data).trigger('content-updated');
+							entry.removeClass('creating').
+								data('origin', parent_id).data('entry', data).
+								trigger('content-updated');
 							editor.trigger('close');
 						}
 					});	      
@@ -803,6 +805,7 @@ function createEntryIn(data, plain_url, plain){
 	var template = (data.type == 'plain') ? '#templates > #plain' : '#templates > #entry';
 	var entry = $(template).clone();
 	data.id = plain_url + data.id;
+	entry.data('origin', plain_url);
 	entry.data('entry', data).appendTo(plain);
 	entry.trigger('content-updated');
 	
