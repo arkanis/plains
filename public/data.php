@@ -12,7 +12,8 @@
 
 
 // Allow other domains to use AJAX requests on this domain
-header('Access-Control-Allow-Origin: * ');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
 
 $_CONFIG = array(
 	'data_dir' => '../data/' . basename($_GET['user']),
