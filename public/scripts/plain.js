@@ -2,12 +2,6 @@
 (function() {
 
 	/**
-	 * Some kind of small config. The data path is the path to the directory that functions as AJAX
-	 * interface for the entry data.
-	 */
-	var data_path = './data/steven';
-
-	/**
 	 * Infrastructure event handlers that take care of the low level element movement logic.
 	 * An element just has to have the 'movable' class.
 	 * 
@@ -573,42 +567,8 @@
 				return false;
 			}
 		});
-	
-	
-		//
-		// Load the initial data
-		//
-		function createEntryIn(data, plain_url, plain){
-			var template = (data.type == 'plain') ? '#templates > #plain' : '#templates > #entry';
-			var entry = $(template).clone();
-			data.id = plain_url + data.id;
-			entry.data('entry', data).appendTo(plain);
-			entry.trigger('content-updated');
-			
-			if (data.type == 'plain') {
-				for(var i = 0; i < data.entries.length; i++)
-					createEntryIn(data.entries[i], plain_url, entry);
-			}
-		}
 		
-		function loadRootPlain(root_plain_url, container_element){
-			data_path = root_plain_url;
-			$.ajax(root_plain_url, {success: function(data){
-				// Apply the stored view data (position and scale)
-				$('#map').data('view', {
-					x: parseFloat(data.pos[0]),
-					y: parseFloat(data.pos[1]),
-					scale: parseFloat(data.scale)
-				}).trigger('interacting');
-				
-				// Recursively add the entries to the DOM
-				for(var i = 0; i < data.entries.length; i++)
-					createEntryIn(data.entries[i], root_plain_url, container_element);
-			}});
-		}
 		
-		loadRootPlain(data_path, $('#map'));
-	
 		//
 		// Entry menu actions
 		//
@@ -830,3 +790,40 @@
 			return self;	
 	}
 })();
+
+// Still a global variable because #map uses this as URL when new entries are created in it.
+// Of course it would be nice if the URL isn't stored in the id but in a data node.
+var data_path = './data/nobody';
+
+//
+// Load the initial data
+//
+function createEntryIn(data, plain_url, plain){
+	var template = (data.type == 'plain') ? '#templates > #plain' : '#templates > #entry';
+	var entry = $(template).clone();
+	data.id = plain_url + data.id;
+	entry.data('entry', data).appendTo(plain);
+	entry.trigger('content-updated');
+	
+	if (data.type == 'plain') {
+		for(var i = 0; i < data.entries.length; i++)
+			createEntryIn(data.entries[i], plain_url, entry);
+	}
+}
+
+// Function called by the index.php page to load the root plain of a user
+function loadRootPlain(root_plain_url, container_element){
+	data_path = root_plain_url;
+	$.ajax(root_plain_url, {success: function(data){
+		// Apply the stored view data (position and scale)
+		$('#map').data('view', {
+			x: parseFloat(data.pos[0]),
+			y: parseFloat(data.pos[1]),
+			scale: parseFloat(data.scale)
+		}).trigger('interacting');
+		
+		// Recursively add the entries to the DOM
+		for(var i = 0; i < data.entries.length; i++)
+			createEntryIn(data.entries[i], root_plain_url, container_element);
+	}});
+}

@@ -6,6 +6,11 @@
 	<link rel="stylesheet" href="styles/pastel.css" type="text/css" />
 	<script src="scripts/jquery-1.6.2.min.js"></script>
 	<script src="scripts/plain.js"></script>
+	<script>
+		$(document).ready(function(){
+			loadRootPlain('./data/<?= basename($_GET['user']) ?>', $('#map'));
+		});
+	</script>
 </head>
 <body class="movable">
 
