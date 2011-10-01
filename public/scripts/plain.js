@@ -61,47 +61,44 @@
 		
 	}).keydown(function(evt) {
 		
-		// Only use the keys to navigate the map if no other element (e.g. textarea) has the focus
-		if ( $(evt.target).is('body') ){
-			var keys = {      
-				LEFT: 37,
-				UP: 38,
-				RIGHT: 39,
-				DOWN: 40,
-				PLUS: 107,
-				MINUS: 109
-			};
+		var keys = {      
+			LEFT: 37,
+			UP: 38,
+			RIGHT: 39,
+			DOWN: 40,
+			PLUS: 107,
+			MINUS: 109
+		};
+		
+		var map = $('#map');
+		
+		switch(evt.keyCode) {
+		
+			case keys.LEFT:
+				map.trigger('movement', [25, 0]);                 
+				return false;
+		
+			case keys.RIGHT:
+				map.trigger('movement', [-25, 0]);
+				return false;
 			
-			var map = $('#map');
-			
-			switch(evt.keyCode) {
-			
-				case keys.LEFT:
-					map.trigger('movement', [25, 0]);                 
-					return false;
-			
-				case keys.RIGHT:
-					map.trigger('movement', [-25, 0]);
-					return false;
+			case keys.UP:
+				map.trigger('movement', [0, 25]);
+				return false;
 				
-				case keys.UP:
-					map.trigger('movement', [0, 25]);
-					return false;
-					
-				case keys.DOWN:
-					map.trigger('movement', [0, -25]);
-					return false;
-					
-				case keys.PLUS:
-					map.data('view').scale = map.data('view').scale * 1.1;
-					map.trigger('interacted');
-					return false;
-					
-				case keys.MINUS:
-					map.data('view').scale = map.data('view').scale / 1.1;
-					map.trigger('interacted');
-					return false;
-			}
+			case keys.DOWN:
+				map.trigger('movement', [0, -25]);
+				return false;
+				
+			case keys.PLUS:
+				map.data('view').scale = map.data('view').scale * 1.1;
+				map.trigger('interacted');
+				return false;
+				
+			case keys.MINUS:
+				map.data('view').scale = map.data('view').scale / 1.1;
+				map.trigger('interacted');
+				return false;
 		}
 	});
 
@@ -387,6 +384,10 @@
 						}
 						break;	         
 				}
+				
+				// This makes sure the underlying map will not get the key event and interpret
+				// them as movement keys.
+				evt.stopPropagation();
 			}	
 		}); 
 	
