@@ -291,6 +291,7 @@
 						data: JSON.stringify({raw: editor.data('textarea').val()}),
 						dataType: 'json', 
 						success: function(data){
+							data.id = entry.attr('id') + data.id;
 							entry.data('entry', data).trigger('content-updated');
 							editor.trigger('close');
 						}
