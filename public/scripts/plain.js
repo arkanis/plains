@@ -302,10 +302,14 @@
 				else {
 					var parent_entry = entry.parents('section').eq(0);
 					
-					if (parent_entry.data('entry') && parent_entry.data('entry').headers.origin)
+					if (parent_entry.data('entry') && parent_entry.data('entry').headers.origin) {
 						var parent_id = parent_entry.data('entry').headers.origin;
-					else					
-						var parent_id = entry.parents('section').eq(0).attr('id');
+						var origin = parent_id;
+					} else {
+						// Origin not parent!
+						var parent_id = parent_entry.attr('id');
+						var origin = parent_entry.data('origin');
+					}
 					
 					// If the section element is the map root use the root plain as parent
 					if(parent_id == 'map')
@@ -319,9 +323,9 @@
 							headers: {'Shape': entry.data('entry').headers.shape}
 						}), 
 						success: function(data){
-							data.id = parent_id + data.id;
+							data.id = origin + data.id;
 							entry.removeClass('creating').
-								data('origin', parent_id).data('entry', data).
+								data('origin', origin).data('entry', data).
 								trigger('content-updated');
 							editor.trigger('close');
 						}
