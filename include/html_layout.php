@@ -14,6 +14,10 @@
 		table th { font-size: 0.77em; }
 		
 		table.numeric-data td { text-align: right; }
+		
+		figure { display: table; margin: 1em auto; padding: 0; }
+		figure > figcaption { display: table-caption; font-size: 0.77em; margin: 0 0 0.5em 0; padding: 0; text-align: center; }
+		figure.inline { float: right; margin: 0 0 0.5em 0.5em; }
 	</style>
 </head>
 <body>
