@@ -1,18 +1,18 @@
 <?php
 
-function path($relative_path)
+function load($path)
 {
-	return $GLOBALS['entry_for_php_processor_functions']->public_path_for($relative_path);
-}
-
-function ref($name, $uri = null)
-{
-	static $references = array();
+	global $_CONFIG;
 	
-	if ($uri != null)
-		return $references[$name] = $uri;
-	else
-		return @$references[$name];
+	$entry_dir = dirname($_CONFIG['data_dir'] . $GLOBALS['entry_for_php_processor_functions']->id);
+	$target_path = $entry_dir . '/' . $path;
+	
+	ob_start();
+	include($target_path);
+	$content = ob_get_clean();
+	
+	list($head, $body) = explode("\n\n", $content, 2);
+	return $body;
 }
 
 /**

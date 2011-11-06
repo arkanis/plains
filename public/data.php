@@ -32,6 +32,59 @@ Entry::processor('markdown', function($raw_content, $entry){
 	return Markdown($raw_content);
 });
 
+// Table of contents generator based on the markdown syntax of headings
+Entry::processor('toc', function($raw_content, $entry){
+	$level = 0;
+	$toc = '';
+	
+	// Travel to toc and built a matching HTML list
+	$raw_content = preg_replace_callback('/
+		^(\#{1,6})	# $1 = string of #\'s
+		[ ]*
+		(.+?)		# $2 = Header text
+		[ ]*
+		\#*			# optional closing #\'s (not counted)
+		([ ]+\{\#([-_:a-zA-Z0-9]+)\})? # id attribute
+		[ ]*
+		\n+
+	/xm', function($match) use(&$level, &$toc){
+		$heading_level = strlen($match[1]);
+		
+		if ($level < $heading_level) {
+			// Open nested listes to get down to the current level
+			while($level < $heading_level){
+				$toc .= "\n<ol>\n<li>";
+				$level++;
+			}
+		} elseif ($level > $heading_level) {
+			// Close nestes lists again to get up to the current level
+			while($level > $heading_level){
+				$toc .= "</li>\n</ol>\n";
+				$level--;
+			}
+			$toc .= "</li>\n<li>";
+		} else {
+			// On the same level just go to the next list item
+			$toc .= "</li>\n<li>";
+		}
+		
+		$id = empty($match[4]) ? Entry::parameterize($match[2]) : $match[4];
+		$toc .= sprintf('<a href="#%s">%s</a>', $id, $match[2]);
+		
+		return $match[1] . ' ' . $match[2] . ' {#' . $id . "}\n\n";
+	}, $raw_content);
+	
+	// Close any remaining lists
+	while($level > 0){
+		$toc .= "</li>\n</ol>\n";
+		$level--;
+	}
+	
+	$raw_content = preg_replace('#<toc\s*/?>#', '<nav>' . $toc . '</nav>', $raw_content);
+	
+	return $raw_content;
+});
+
 // A small smiley processor. It's supported by CSS rules that map
 // the classes to style specific image. An image element would simply be
 // to much for a smiley and this way it degrade gracefully within the
@@ -53,6 +106,21 @@ Entry::processor('smilies', function($raw_content, $entry){
 		$raw_content = preg_replace('/(\s)' . preg_quote($smiley) . '/', '$1<span class="smiley ' . $smiley_class . '">' . $smiley . '</span>', $raw_content);
 	
 	return $raw_content;
+});
+
+// A PHP processor. It enables the writer to embed links to files in the
+// entries own folder or obfuscated mail adresses. The functions within
+// php.php should be used within entry text.
+require_once('../include/processors/php.php');
+Entry::processor('php', function($raw_content, $entry){
+	$GLOBALS['entry_for_php_processor_functions'] = $entry;
+	
+	ob_start();
+	include($entry->path);
+	$entry_date = ob_get_clean();
+	
+	list($head, $processed_content) = explode("\n\n", $entry_date, 2);
+	return $processed_content;
 });
 
 Entry::route_in(function($id) use($_CONFIG){
