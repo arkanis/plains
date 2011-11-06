@@ -261,8 +261,15 @@ elseif ( !isset($_GET['id']) )
 					'raw_content' => $entry->raw_content,
 					'raw' => $raw
 				);
-				header('Content-Type: application/json');
-				echo(json_encode($content));
+				
+				if ( isset($_GET['format']) and $_GET['format'] == 'html' ) {
+					// Output the processed content as HTML. The layout does the rest.
+					require('../include/html_layout.php');
+				} else {
+					// Output everything as JSON
+					header('Content-Type: application/json');
+					echo(json_encode($content));
+				}
 			} else {
 				exit_with_error(404, 'Could not find entry');
 			}
