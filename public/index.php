@@ -20,6 +20,7 @@
 		<li class="new idea" data-type="idea" title="New idea">new idea</li>
 		<li class="new plain" data-type="plain" title="New plain">new plain</li>
 		<li class="reset-zoom" title="Reset zoom">reset zoom</li>
+		<li class="cleanup" title="Toggle cleanup mode">cleanup mode</li>
 	</ul>
 	
 	Plains

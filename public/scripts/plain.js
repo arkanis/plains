@@ -621,6 +621,12 @@
 			$('#map').trigger('reset-zoom');
 			return false;
 		});
+		
+		$('body > nav > ul > li.cleanup').click(function(){
+			$('body').toggleClass('cleanup');
+			$('.entry > header > h1').toggleClass('movable');
+			return false;
+		});
 	
 		/**
 		 * Taken from a jQuery bug report (http://bugs.jquery.com/ticket/8362) and slightly
