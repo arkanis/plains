@@ -184,7 +184,10 @@ function load_plain($plain_path){
 	
 	$entries = array();
 	foreach(glob($plain_path . '/*') as $child_path){
-		if ( pathinfo($child_path, PATHINFO_EXTENSION) != 'deleted' ){
+		$type = pathinfo($child_path, PATHINFO_EXTENSION);
+		// Ignore all unknown types, especially 'deleted' since deleted entries are marked this way.
+		// This also ignores stuff like PDFs and TTF fonts. Directories are empty strings (no type).
+		if ( in_array($type, array('', 'plain', 'note', 'idea')) ){
 			if (is_dir($child_path)) {
 				// We got a directory, so go in recursively (dot directories are not returned by glob)
 				$entries[] = load_plain($child_path);
