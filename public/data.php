@@ -80,7 +80,7 @@ Entry::processor('toc', function($raw_content, $entry){
 		$level--;
 	}
 	
-	$raw_content = preg_replace('#<toc\s*/?>#', '<nav>' . $toc . '</nav>', $raw_content);
+	$raw_content = preg_replace('#<toc\s*/?>#', $toc, $raw_content);
 	
 	return $raw_content;
 });
