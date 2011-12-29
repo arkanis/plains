@@ -1,6 +1,6 @@
 <?php
 
-function load($path)
+function load($path, $heading_level = 1)
 {
 	global $_CONFIG;
 	
@@ -9,10 +9,15 @@ function load($path)
 	
 	ob_start();
 	include($target_path);
-	$content = ob_get_clean();
+	$entry_data = ob_get_clean();
 	
-	list($head, $body) = explode("\n\n", $content, 2);
-	return $body;
+	$loaded_entry = Entry::load_from_string($entry_data);
+	$content = preg_replace_callback('/^\s*(#+)\s+(.*)$/m', function($match) use($heading_level) {
+		$level = strlen($match[1]);
+		$text = $match[2];
+		return str_repeat('#', $heading_level + $level) . ' ' . $text;
+	}, $loaded_entry->raw_content);
+	return str_repeat('#', $heading_level) . ' ' . $loaded_entry->title . "\n\n" . $content . "\n";
 }
 
 /**
