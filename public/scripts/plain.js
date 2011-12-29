@@ -286,11 +286,14 @@
 				
 				
 				// update
-				if(!entry.hasClass('creating'))		
+				if(!entry.hasClass('creating')) {
 					jQuery.ajax(entry.attr('id'), {
 						type: 'PUT', 
 						data: JSON.stringify({raw: editor.data('textarea').val()}),
-						dataType: 'json', 
+						dataType: 'json',
+						// Force native AJAX request instead of JSONP stuff. This at least works in Chrome while JSONP breaks everywhere.
+						// Setting `jsonp` to `false` disables the jQuery prefilter that converts normal AJAX requests to JSONP AJAX requests.
+						jsonp: false,
 						success: function(data){
 							data.id = entry.data('origin') + data.id;
 							entry.data('entry', data).trigger('content-updated');
@@ -299,7 +302,7 @@
 					});
 					
 				// create
-				else {
+				} else {
 					var parent_entry = entry.parents('section').eq(0);
 					
 					if (parent_entry.data('entry') && parent_entry.data('entry').headers.origin) {
@@ -512,6 +515,7 @@
 				if (data.headers.origin){
 					var origin = data.headers.origin;
 					$.ajax(origin, {
+						dataType: 'json',
 						success: function(data){
 							for(var i = 0; i < data.entries.length; i++)
 								createEntryIn(data.entries[i], origin, entry);
