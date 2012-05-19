@@ -192,7 +192,7 @@
 			'zoom': function(event, dir, page_x, page_y){
 				var elem = $('#map');
 				var view = elem.data('view');
-				var scale_multiplier = (dir > 0) ? 1.1 : 1 / 1.1;
+				var scale_multiplier = (dir > 0) ? 1.5 : 1 / 1.5;
 			
 				// page to world space:
 				// w = -view + p / view_scale
