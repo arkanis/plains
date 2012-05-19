@@ -17,6 +17,7 @@ function load($path, $heading_level = 1)
 		$text = $match[2];
 		return str_repeat('#', $heading_level + $level) . ' ' . $text;
 	}, $loaded_entry->raw_content);
+	
 	return str_repeat('#', $heading_level) . ' ' . $loaded_entry->title . "\n\n" . $content . "\n";
 }
 

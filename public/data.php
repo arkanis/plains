@@ -71,7 +71,7 @@ Entry::processor('toc', function($raw_content, $entry){
 		$id = empty($match[4]) ? Entry::parameterize($match[2]) : $match[4];
 		$toc .= sprintf('<a href="#%s">%s</a>', $id, $match[2]);
 		
-		return $match[1] . ' ' . $match[2] . ' {#' . $id . "}\n\n";
+		return $match[1] . ' ' . $match[2] . ' {#' . urlencode($id) . "}\n\n";
 	}, $raw_content);
 	
 	// Close any remaining lists
@@ -323,23 +323,30 @@ elseif ( !isset($_GET['id']) )
 		if ($path) {
 			$raw = @file_get_contents($path);
 			if ($raw) {
-				$entry = Entry::load_from_string($raw, $path);
-				$content = array(
-					'id' => $entry->id,
-					'type' => $entry->type,
-					'headers' => $entry->headers,
-					'content' => $entry->content,
-					'raw_content' => $entry->raw_content,
-					'raw' => $raw
-				);
-				
-				if ( isset($_GET['format']) and $_GET['format'] == 'html' ) {
-					// Output the processed content as HTML. The layout does the rest.
-					require('../include/html_layout.php');
+				if ( in_array( pathinfo($path, PATHINFO_EXTENSION), array('svg', 'png', 'jpg') ) ) {
+					// We got an image file, directly push it to the client
+					header('Content-Type: ' . mime_content_type($path));
+					echo($raw);
 				} else {
-					// Output everything as JSON
-					header('Content-Type: application/json');
-					echo(json_encode($content));
+					// An actual entry, load it and process it
+					$entry = Entry::load_from_string($raw, $path);
+					$content = array(
+						'id' => $entry->id,
+						'type' => $entry->type,
+						'headers' => $entry->headers,
+						'content' => $entry->content,
+						'raw_content' => $entry->raw_content,
+						'raw' => $raw
+					);
+					
+					if ( isset($_GET['format']) and $_GET['format'] == 'html' ) {
+						// Output the processed content as HTML. The layout does the rest.
+						require('../include/html_layout.php');
+					} else {
+						// Output everything as JSON
+						header('Content-Type: application/json');
+						echo(json_encode($content));
+					}
 				}
 			} else {
 				exit_with_error(404, 'Could not find entry');

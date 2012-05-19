@@ -1,0 +1,33 @@
+/* layout */
+html, body { margin: 0; padding: 0; background: black; }
+body > ul { margin: 0; padding: 0; list-style: none; }
+body > ul > li { overflow: hidden; width: 1022px; height: 766px; margin: 1em auto; padding: 1px; }
+
+/* typography and color */
+body { font-size: 40px; font-family: ubuntu, sans-serif; }
+body > ul > li { color: #fffeff; background: #2c0220; }
+
+body > ul > li ul { list-style: none; }
+body > ul > li ul > li:before { content: '•'; color: #f64604; margin-right: 0.4em; }
+
+a { text-decoration: none; color: inherit; }
+a:hover { text-decoration: underline; }
+
+/* slide layout */
+h1 { font-size: 2em; margin: 3em 0 0 0; padding: 0 1em; text-align: center; }
+li > h1 + p { font-size: 0.77em; margin: 1em 0 0 0; padding: 0; text-align: center; }
+li > h1 + p + p { font-size: 0.5em; margin: 2em 0 0 0; padding: 0; text-align: center; }
+
+body > ul > li > h2 { font-size: 1.25em; margin: 2.5em 0 0 2em; padding: 0; font-weight: normal; }
+body > ul > li > ul { margin: 0; padding: 1em 0 0 2.5em; list-style: none; }
+body > ul > li ul > li { font-size: 0.77em; margin: 0.5em 0; padding: 0; }
+
+
+/* stuff for the beamer */
+@media projection {
+	body > ul > li { margin: 0 auto; page-break-after: always; }
+	a, a:hover, body > ul > li > ul a, body > ul > li > ul a:hover { color: inherit; text-decoration: none; }
+	
+	/* styles for PrinceXML to generate the PDF presentation */
+	@page { margin: 0; size: 1024px 768px; }
+}
