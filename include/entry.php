@@ -559,7 +559,7 @@ class Entry
 	 */
 	static function parameterize($name)
 	{
-		return trim( preg_replace('/[^\w\däüöß]+/', '-', strtolower($name)), '-' );
+		return trim( preg_replace('/[^\w\däüöß+]+/', '-', strtolower($name)), '-' );
 	}
 }
 
