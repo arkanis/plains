@@ -1,0 +1,11 @@
+#version 120
+
+uniform vec2 cursor_pos;
+uniform vec4 color;
+
+varying vec2 screen_coords;
+
+void main(){
+	gl_FragColor = color;
+	gl_FragColor.a = smoothstep(5, 2, distance(screen_coords, cursor_pos));
+}
