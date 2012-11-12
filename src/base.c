@@ -17,6 +17,8 @@
 #include "math.h"
 #include "viewport.h"
 
+#include "test_image.c"
+
 
 
 /*
@@ -45,7 +47,7 @@ viewport_p viewport;
 //
 GLuint grid_prog, grid_vertex_buffer;
 // Space between grid lines in world units
-vec2_t grid_default_spacing = {1, 1};
+vec2_t grid_default_spacing = {100, 100};
 
 void grid_load(){
 	grid_prog = load_and_link_program("grid.vs", "grid.ps");
@@ -88,7 +90,7 @@ void grid_draw(){
 	glEnableVertexAttribArray(pos_attrib);
 	glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0);
 	
-	glUniform4f( glGetUniformLocation(grid_prog, "color"), 0, 0, 0.5, 1 );
+	glUniform4f( glGetUniformLocation(grid_prog, "color"), 0.5, 0.5, 0.5, 1 );
 	glUniform2f( glGetUniformLocation(grid_prog, "grid_spacing"), grid_spacing.x, grid_spacing.y );
 	glUniform2f( glGetUniformLocation(grid_prog, "grid_offset"), grid_offset.x, grid_offset.y );
 	glUniform1f( glGetUniformLocation(grid_prog, "vp_scale_exp"), viewport->scale_exp );
@@ -146,7 +148,7 @@ void cursor_draw(){
 	
 	GLint color_uni = glGetUniformLocation(cursor_prog, "color");
 	assert(color_uni != -1);
-	glUniform4f(color_uni, 1, 1, 1, 1);
+	glUniform4f(color_uni, 0, 0, 0, 1);
 	
 	GLint projection_uni = glGetUniformLocation(cursor_prog, "projection");
 	assert(projection_uni != -1);
@@ -160,243 +162,92 @@ void cursor_draw(){
 
 
 //
-// Particles
+// Windows
 //
 typedef struct {
-	vec2_t pos, vel, force;  // m, m_s, m_s2
-	float mass;  // kg
-	int flags;
-} particle_t, *particle_p;
+	int64_t x, y, width, height;
+	GLuint texture;
+} win_t, *win_p;
 
-#define PARTICLE_TRAVERSED 1<<0
+size_t window_count = 0;
+win_p windows = NULL;
+GLuint window_prog, window_vertex_buffer;
 
-particle_p particles = NULL;
-size_t particle_count;
-GLuint particle_prog, particle_vertex_buffer;
 
-typedef struct {
-	particle_p p1, p2;
-	float length;  // m
-	int flags;
-} beam_t, *beam_p;
+void windows_resize(size_t new_win_count){
+	window_count = new_win_count;
+	windows = realloc(windows, window_count * sizeof(win_t));
+}
 
-#define BEAM_TRAVERSED 1<<0
-#define BEAM_FOLLOWED 1<<1
-
-beam_p beams = NULL;
-size_t beam_count;
-GLuint beam_prog, beam_vertex_buffer;
-
-void particles_load(){
-	beam_prog = load_and_link_program("unit.vs", "unit.ps");
-	assert(beam_prog != 0);
+void windows_load(){
+	window_prog = load_and_link_program("window.vs", "window.ps");
+	assert(window_prog != 0);
 	
-	glGenBuffers(1, &beam_vertex_buffer);
-	assert(beam_vertex_buffer != 0);
-	
-	particle_prog = load_and_link_program("particle.vs", "particle.ps");
-	assert(particle_prog != 0);
-	
-	glGenBuffers(1, &particle_vertex_buffer);
-	assert(particle_vertex_buffer != 0);
-	glBindBuffer(GL_ARRAY_BUFFER, particle_vertex_buffer);
-	
+	glGenBuffers(1, &window_vertex_buffer);
+	assert(window_vertex_buffer != 0);
+	glBindBuffer(GL_ARRAY_BUFFER, window_vertex_buffer);
 	const float vertecies[] = {
 		// Rectangle
-		0.5, 0.5,
-		-0.5, 0.5,
-		-0.5, -0.5,
-		0.5, -0.5,
-		// Arrow: -->
+		0, 0,
 		1, 0,
-		0.25, 0.25,
-		0, -1,
-		0.25, -0.25
+		1, 1,
+		0, 1
 	};
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertecies), vertecies, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	
-	// Create test particles
-	/*
-	particle_count = 4;
-	particles = realloc(particles, sizeof(particle_t) * particle_count);
+	glEnable(GL_TEXTURE_RECTANGLE_ARB);
 	
-	particles[0] = (particle_t){
-		.pos = (vec2_t){ -1, -1 },
-		.vel = (vec2_t){ 0, 0 },
-		.force = (vec2_t){0, 0},
-		.mass = 1
+	// Create test windows
+	windows_resize(1);
+	windows[0] = (win_t){
+		.x = 0, .y = 0,
+		.width = test_image.width,
+		.height = test_image.height,
+		.texture = 0
 	};
-	particles[1] = (particle_t){
-		.pos = (vec2_t){ 0, 0 },
-		.vel = (vec2_t){ 0, 0 },
-		.force = (vec2_t){0, 0},
-		.mass = 1
-	};
-	particles[2] = (particle_t){
-		.pos = (vec2_t){ 2, 2 },
-		.vel = (vec2_t){ 0, 0 },
-		.force = (vec2_t){0, 0},
-		.mass = 1
-	};
-	particles[3] = (particle_t){
-		.pos = (vec2_t){ 2, 0 },
-		.vel = (vec2_t){ 0, 0 },
-		.force = (vec2_t){0, 0},
-		.mass = 1
-	};
-	*/
-	/*
-	srand(5);
-	for(size_t i = 0; i < particle_count; i++){
-		particles[i] = (particle_t){
-			.pos = (vec2_t){ rand_in(-10, 10), rand_in(-10, 10) },
-			.vel = (vec2_t){ rand_in(-2, 2), rand_in(-2, 2) },
-			.force = (vec2_t){0, 0},
-			.mass = 1
-		};
-	}
-	*/
-	
-	// Create test beams
-	inline particle_t particle_at(float x, float y){
-		return (particle_t){
-			.pos = (vec2_t){ x, y },
-			.vel = (vec2_t){ 0, 0 },
-			.force = (vec2_t){0, 0},
-			.mass = 1
-		};
-	}
-	
-	particle_count = 16;
-	particles = realloc(particles, sizeof(particle_t) * particle_count);
-	
-	particles[0] = particle_at(0, 0);
-	particles[1] = particle_at(0, 2);
-	particles[2] = particle_at(0, 4);
-	particles[3] = particle_at(0, 6);
-	particles[4] = particle_at(-1, -1);
-	particles[5] = particle_at(-1, 1);
-	particles[6] = particle_at(-1, 3);
-	particles[7] = particle_at(-1, 5);
-	particles[8] = particle_at(-2, -1);
-	particles[9] = particle_at(-2, 1);
-	particles[10] = particle_at(-2, 3);
-	particles[11] = particle_at(-2, 5);
-	particles[12] = particle_at(-3, 0);
-	particles[13] = particle_at(-3, 2);
-	particles[14] = particle_at(-3, 4);
-	particles[15] = particle_at(-3, 6);
-	
-	inline beam_t beam_from_to(size_t p1_index, size_t p2_index){
-		return (beam_t){
-			.p1 = &particles[p1_index],
-			.p2 = &particles[p2_index],
-			.length = v2_length( v2_sub(particles[p2_index].pos, particles[p1_index].pos) )
-		};
-	}
-	
-	beam_count = 24;
-	beams = realloc(beams, sizeof(beam_t) * beam_count);
-	
-	beams[0] = beam_from_to(0, 1);
-	beams[1] = beam_from_to(1, 2);
-	beams[2] = beam_from_to(2, 3);
-	beams[3] = beam_from_to(0, 4);
-	beams[4] = beam_from_to(0, 5);
-	beams[5] = beam_from_to(1, 5);
-	beams[6] = beam_from_to(1, 6);
-	beams[7] = beam_from_to(2, 6);
-	beams[8] = beam_from_to(2, 7);
-	beams[9] = beam_from_to(3, 7);
-	
-	beams[10] = beam_from_to(4, 8);
-	beams[11] = beam_from_to(5, 9);
-	beams[12] = beam_from_to(6, 10);
-	beams[13] = beam_from_to(7, 11);
-	
-	beams[14] = beam_from_to(12, 13);
-	beams[15] = beam_from_to(13, 14);
-	beams[16] = beam_from_to(14, 15);
-	beams[17] = beam_from_to(12, 8);
-	beams[18] = beam_from_to(12, 9);
-	beams[19] = beam_from_to(13, 9);
-	beams[20] = beam_from_to(13, 10);
-	beams[21] = beam_from_to(14, 10);
-	beams[22] = beam_from_to(14, 11);
-	beams[23] = beam_from_to(15, 11);
+	glGenTextures(1, &windows[0].texture);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, windows[0].texture);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, test_image.width, test_image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_image.pixel_data);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
 }
 
-void particles_unload(){
-	free(particles);
-	particles = NULL;
-	
-	glDeleteBuffers(1, &particle_vertex_buffer);
-	delete_program_and_shaders(particle_prog);
+void windows_unload(){
+	glDeleteTextures(1, &windows[0].texture);
+	glDisable(GL_TEXTURE_RECTANGLE_ARB);
 }
 
-void particles_draw(){
-	// Draw particles
-	glUseProgram(particle_prog);
-	glBindBuffer(GL_ARRAY_BUFFER, particle_vertex_buffer);
+void windows_draw(){
+	glUseProgram(window_prog);
+	glBindBuffer(GL_ARRAY_BUFFER, window_vertex_buffer);
 	
-	GLint pos_attrib = glGetAttribLocation(particle_prog, "pos");
+	GLint pos_attrib = glGetAttribLocation(window_prog, "pos");
 	assert(pos_attrib != -1);
 	glEnableVertexAttribArray(pos_attrib);
 	glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0);
 	
-	GLint color_uni = glGetUniformLocation(particle_prog, "color");
-	GLint to_norm_uni = glGetUniformLocation(particle_prog, "to_norm");
-	GLint trans_uni = glGetUniformLocation(particle_prog, "transform");
-	assert(color_uni != -1);
-	assert(to_norm_uni != -1);
-	assert(trans_uni != -1);
+	GLint world_to_norm_uni = glGetUniformLocation(window_prog, "world_to_norm");
+	assert(world_to_norm_uni != -1);
+	glUniformMatrix3fv(world_to_norm_uni, 1, GL_FALSE, viewport->world_to_normal);
 	
-	glUniform4f(color_uni, 0, 1, 0, 1 );
-	glUniformMatrix3fv(to_norm_uni, 1, GL_FALSE, viewport->world_to_normal);
+	glActiveTexture(GL_TEXTURE0);
+	GLint tex_attrib = glGetUniformLocation(window_prog, "tex");
+	assert(tex_attrib != -1);
+	glUniform1i(tex_attrib, 0);
 	
-	for(size_t i = 0; i < particle_count; i++){
-		glUniformMatrix3fv(trans_uni, 1, GL_TRUE, (float[9]){
-			1, 0, particles[i].pos.x,
-			0, 1, particles[i].pos.y,
-			0, 0, 1
-		});
+	for(size_t i = 0; i < window_count; i++){
+		win_p w = &windows[i];
+		
+		glBindTexture(GL_TEXTURE_RECTANGLE_ARB, w->texture);
+		
+		GLint pos_and_size_uni = glGetUniformLocation(window_prog, "pos_and_size");
+		assert(pos_and_size_uni != -1);
+		glUniform4f(pos_and_size_uni, w->x, w->y, w->width, w->height);
+		
 		glDrawArrays(GL_QUADS, 0, 4);
 	}
 	
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glUseProgram(0);
-	
-	
-	// Draw beams
-	glUseProgram(beam_prog);
-	glBindBuffer(GL_ARRAY_BUFFER, beam_vertex_buffer);
-	
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 4 * beam_count, NULL, GL_STATIC_DRAW);
-	float *vertex_buffer = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-	for(size_t i = 0; i < beam_count; i++){
-		vertex_buffer[i*4+0] = beams[i].p1->pos.x;
-		vertex_buffer[i*4+1] = beams[i].p1->pos.y;
-		vertex_buffer[i*4+2] = beams[i].p2->pos.x;
-		vertex_buffer[i*4+3] = beams[i].p2->pos.y;
-		//printf("beam %zu: from %f/%f to %f/%f\n", i, beams[i].p1->pos.x, beams[i].p1->pos.y, beams[i].p2->pos.x, beams[i].p2->pos.y);
-	}
-	/*
-	for(size_t i = 0; i < 4 * beam_count; i++)
-		printf("vb[%zu]: %f\n", i, vertex_buffer[i]);
-	*/
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	
-	pos_attrib = glGetAttribLocation(beam_prog, "pos");
-	assert(pos_attrib != -1);
-	glEnableVertexAttribArray(pos_attrib);
-	glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0);
-	
-	glUniform4f( glGetUniformLocation(beam_prog, "color"), 1, 1, 1, 1 );
-	glUniformMatrix3fv( glGetUniformLocation(beam_prog, "to_norm"), 1, GL_FALSE, viewport->world_to_normal);
-	
-	glDrawArrays(GL_LINES, 0, beam_count * 2);
-	
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glUseProgram(0);
 }
@@ -417,7 +268,7 @@ void renderer_load(uint16_t window_width, uint16_t window_height, const char *ti
 	SDL_WM_SetCaption(title, NULL);
 	
 	// Initialize viewport structure
-	viewport = vp_new((vec2_t){10, 10}, 2);
+	viewport = vp_new((vec2_t){window_width, window_height}, 2);
 	renderer_resize(window_width, window_height);
 	
 	// Enable alpha blending
@@ -433,181 +284,15 @@ void renderer_unload(){
 }
 
 void renderer_draw(){
-	glClearColor(0, 0, 0, 1.0);
+	glClearColor(1, 1, 1, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT);
 	
 	grid_draw();
-	particles_draw();
+	windows_draw();
 	cursor_draw();
 }
 
 
-//
-// Simulation
-//
-ssize_t sim_grabbed_particle_idx = -1;
-
-typedef void (*particle_func_t)(particle_p particle, particle_p from);
-typedef void (*beam_func_t)(beam_p beam, particle_p from, particle_p to);
-
-/**
- * Do a broad iteration. That is iterate all connected beams before following the first beam to a new
- * particle. This is necessary for the forces to propagate from the start particle outwards. Otherwise
- * a depth first iteration might finish most particles "from behind" missing most of the forces caused
- * by the initial particle.
- */
-void sim_traverse_particles(particle_p p, particle_func_t particle_func){
-	assert(p != NULL && particle_func != NULL);
-	
-	particle_func(p, NULL);
-	p->flags |= PARTICLE_TRAVERSED;
-	
-	size_t traversed_particles;
-	do {
-		traversed_particles = 0;
-		
-		for(size_t i = 0; i < beam_count; i++){
-			beam_p beam = &beams[i];
-			
-			if ( (beam->p1->flags & PARTICLE_TRAVERSED) && !(beam->p2->flags & PARTICLE_TRAVERSED) ) {
-				particle_func(beam->p2, beam->p1);
-				beam->p2->flags |= PARTICLE_TRAVERSED;
-				traversed_particles++;
-			} else if ( (beam->p2->flags & PARTICLE_TRAVERSED) && !(beam->p1->flags & PARTICLE_TRAVERSED) ) {
-				particle_func(beam->p1, beam->p2);
-				beam->p1->flags |= PARTICLE_TRAVERSED;
-				traversed_particles++;
-			}
-		}
-	} while (traversed_particles > 0);
-	
-	/*
-	for(size_t i = 0; i < beam_count; i++){
-		beam_p beam = &beams[i];
-		if ( (beam->flags & BEAM_TRAVERSED) == 0 ) {
-			if (beam->p1 == p) {
-				beam_func(beam, p, beam->p2);
-				beam->flags |= BEAM_TRAVERSED;
-			} else if (beam->p2 == p) {
-				beam_func(beam, p, beam->p1);
-				beam->flags |= BEAM_TRAVERSED;
-			}
-		}
-	}
-	
-	for(size_t i = 0; i < beam_count; i++){
-		beam_p beam = &beams[i];
-		if ( ((beam->flags & BEAM_FOLLOWED) == 0) && (beam->p1 == p || beam->p2 == p) ){
-			beam->flags |= BEAM_FOLLOWED;
-			sim_traverse( (beam->p1 == p ? beam->p2 : beam->p1), beam_func, particle_func);
-		}
-	}
-	
-	particle_func(p);
-	*/
-}
-
-void sim_traverse_beams(particle_p p, bool mark, beam_func_t beam_func){
-	assert(p != NULL && beam_func != NULL);
-	
-	for(size_t i = 0; i < beam_count; i++){
-		beam_p beam = &beams[i];
-		if ( !(beam->flags & BEAM_TRAVERSED) ) {
-			if (beam->p1 == p) {
-				beam_func(beam, p, beam->p2);
-				if (mark)
-					beam->flags |= BEAM_TRAVERSED;
-			} else if (beam->p2 == p) {
-				beam_func(beam, p, beam->p1);
-				if (mark)
-					beam->flags |= BEAM_TRAVERSED;
-			}
-		}
-	}	
-}
-
-void sim_clear_traverse_flags(){
-	for(size_t i = 0; i < beam_count; i++)
-		beams[i].flags = 0;
-	for(size_t i = 0; i < particle_count; i++)
-		particles[i].flags = 0;
-}
-
-void sim_propagate_forces(){
-	sim_clear_traverse_flags();
-	
-	void particle_func(particle_p particle, particle_p particle_from){
-		printf("iterating particle %p\n", particle);
-		
-		float scalar_sum = 0;
-		void scalar_summer(beam_p beam, particle_p from, particle_p to){
-			scalar_sum += v2_sprod( v2_norm(v2_sub(to->pos, from->pos)), v2_norm(particle->force) );
-		}
-		sim_traverse_beams(particle, false, scalar_summer);
-		printf("scalar sum: %f\n", scalar_sum);
-		
-		if (scalar_sum > 0){
-			void beam_func(beam_p beam, particle_p from, particle_p to){
-				printf("iterating beam from %p to %p\n", from, to);
-				float proj = v2_sprod( v2_norm(v2_sub(to->pos, from->pos)), v2_norm(particle->force) );
-				to->force = v2_muls(particle->force, proj / scalar_sum);
-			}
-			sim_traverse_beams(particle, true, beam_func);
-		}
-		
-		if (particle_from != NULL)
-			particle->force = particle_from->force;
-	}
-	
-	sim_traverse_particles(&particles[sim_grabbed_particle_idx], particle_func);
-}
-
-void simulate(float dt){
-	for(size_t i = 0; i < particle_count; i++){
-		/*
-		a = f / m;
-		v = v + a * dt;
-		s = s + v * dt;
-		*/
-		particle_p p = &particles[i];
-		
-		vec2_t acl;
-		acl.x = p->force.x / p->mass;
-		acl.y = p->force.y / p->mass;
-		p->vel.x += acl.x * dt;
-		p->vel.y += acl.y * dt;
-		p->pos.x += p->vel.x * dt;
-		p->pos.y += p->vel.y * dt;
-	}
-}
-
-void sim_apply_force(){
-	vec2_t world_cursor = m3_v2_mul(viewport->screen_to_world, cursor_pos);
-	
-	// Find nearest particle
-	size_t closest_idx = 0;
-	float closest_dist = INFINITY;
-	vec2_t to_closest;
-	for(size_t i = 0; i < particle_count; i++){
-		vec2_t to_particle = v2_sub(particles[i].pos, world_cursor);
-		float dist = v2_length(to_particle);
-		if (dist < closest_dist){
-			closest_idx = i;
-			closest_dist = dist;
-			to_closest = to_particle;
-		}
-	}
-	
-	particles[closest_idx].force = to_closest;
-	sim_grabbed_particle_idx = closest_idx;
-	sim_propagate_forces();
-}
-
-void sim_retain_force(){
-	particles[sim_grabbed_particle_idx].force = (vec2_t){0, 0};
-	sim_propagate_forces();
-	sim_grabbed_particle_idx = -1;
-}
 
 
 int main(int argc, char **argv){
@@ -619,7 +304,7 @@ int main(int argc, char **argv){
 	
 	grid_load();
 	cursor_load();
-	particles_load();
+	windows_load();
 	
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false;
@@ -674,7 +359,6 @@ int main(int argc, char **argv){
 				case SDL_MOUSEBUTTONDOWN:
 					switch(e.button.button){
 						case SDL_BUTTON_LEFT:
-							sim_apply_force();
 							break;
 						case SDL_BUTTON_MIDDLE:
 							viewport_grabbed = true;
@@ -690,7 +374,6 @@ int main(int argc, char **argv){
 				case SDL_MOUSEBUTTONUP:
 					switch(e.button.button){
 						case SDL_BUTTON_LEFT:
-							sim_retain_force();
 							break;
 						case SDL_BUTTON_MIDDLE:
 							viewport_grabbed = false;
@@ -728,7 +411,6 @@ int main(int argc, char **argv){
 		
 		renderer_draw();
 		SDL_GL_SwapBuffers();
-		simulate(cycle_duration / 1000.0);
 		
 		int32_t duration = cycle_duration - (SDL_GetTicks() - ticks);
 		if (duration > 0)
@@ -737,7 +419,7 @@ int main(int argc, char **argv){
 	}
 	
 	// Cleanup time
-	particles_unload();
+	windows_unload();
 	cursor_unload();
 	grid_unload();
 	renderer_unload();
