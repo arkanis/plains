@@ -1,10 +1,12 @@
 #pragma once
 #include <math.h>
+#include <stdint.h>
 
 typedef float mat4_t[16];
 typedef float mat3_t[9];
 typedef struct { float x, y; } vec2_t;
 typedef struct { float x, y, z; } vec3_t;
+typedef struct { int64_t x, y; } veci2_t;
 
 void m3_transpose(mat3_t mr, mat3_t ma);
 void m3_identity(mat3_t mat);
@@ -21,10 +23,24 @@ static inline vec2_t v2_add(vec2_t a, vec2_t b){
 	};
 }
 
+static inline vec2_t v2_adds(vec2_t a, float s){
+	return (vec2_t){
+		a.x + s,
+		a.y + s
+	};
+}
+
 static inline vec2_t v2_sub(vec2_t a, vec2_t b){
 	return (vec2_t){
 		a.x - b.x,
 		a.y - b.y
+	};
+}
+
+static inline vec2_t v2_subs(vec2_t a, float s){
+	return (vec2_t){
+		a.x - s,
+		a.y - s
 	};
 }
 
@@ -46,6 +62,13 @@ static inline vec2_t v2_div(vec2_t a, vec2_t b){
 	return (vec2_t){
 		a.x / b.x,
 		a.y / b.y
+	};
+}
+
+static inline vec2_t v2_divs(vec2_t a, float s){
+	return (vec2_t){
+		a.x / s,
+		a.y / s
 	};
 }
 

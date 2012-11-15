@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -10,6 +11,9 @@
 
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
+
+
+#include "common.h"
 
 
 /**
@@ -108,6 +112,19 @@ void delete_program_and_shaders(GLuint program){
 	glDeleteProgram(program);
 	for(size_t i = 0; i < shader_count; i++)
 		glDeleteShader(shaders[i]);
+}
+
+/**
+ * Checks if an OpenGL extention is avaialbe.
+ */
+bool gl_ext_present(const char *ext_name){
+	GLint ext_count;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &ext_count);
+	for(size_t i = 0; i < ext_count; i++){
+		if ( strcmp(glGetStringi(GL_EXTENSIONS, i), ext_name) == 0 )
+			return true;
+	}
+	return false;
 }
 
 

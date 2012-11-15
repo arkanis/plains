@@ -1,7 +1,10 @@
 GCC_FLAGS = -std=gnu99 -g
 
-base: base.c common.o math.o viewport.o
-	gcc $(GCC_FLAGS) base.c common.o math.o viewport.o -lSDL -lGL -o base
+base: base.c common.o math.o viewport.o layer.o
+	gcc $(GCC_FLAGS) base.c common.o math.o viewport.o layer.o -lSDL -lGL -o base
+
+layer.o: layer.c layer.h common.h viewport.h math.h
+	gcc -c $(GCC_FLAGS) layer.c
 
 common.o: common.c common.h
 	gcc -c $(GCC_FLAGS) common.c

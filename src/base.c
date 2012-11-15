@@ -16,8 +16,10 @@
 #include "common.h"
 #include "math.h"
 #include "viewport.h"
+#include "layer.h"
 
-#include "test_image.c"
+#include "image_window.c"
+#include "image_haruhi.c"
 
 
 
@@ -162,98 +164,6 @@ void cursor_draw(){
 
 
 //
-// Windows
-//
-typedef struct {
-	int64_t x, y, width, height;
-	GLuint texture;
-} win_t, *win_p;
-
-size_t window_count = 0;
-win_p windows = NULL;
-GLuint window_prog, window_vertex_buffer;
-
-
-void windows_resize(size_t new_win_count){
-	window_count = new_win_count;
-	windows = realloc(windows, window_count * sizeof(win_t));
-}
-
-void windows_load(){
-	window_prog = load_and_link_program("window.vs", "window.ps");
-	assert(window_prog != 0);
-	
-	glGenBuffers(1, &window_vertex_buffer);
-	assert(window_vertex_buffer != 0);
-	glBindBuffer(GL_ARRAY_BUFFER, window_vertex_buffer);
-	const float vertecies[] = {
-		// Rectangle
-		0, 0,
-		1, 0,
-		1, 1,
-		0, 1
-	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertecies), vertecies, GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	
-	glEnable(GL_TEXTURE_RECTANGLE_ARB);
-	
-	// Create test windows
-	windows_resize(1);
-	windows[0] = (win_t){
-		.x = 0, .y = 0,
-		.width = test_image.width,
-		.height = test_image.height,
-		.texture = 0
-	};
-	glGenTextures(1, &windows[0].texture);
-	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, windows[0].texture);
-	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, test_image.width, test_image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_image.pixel_data);
-	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
-}
-
-void windows_unload(){
-	glDeleteTextures(1, &windows[0].texture);
-	glDisable(GL_TEXTURE_RECTANGLE_ARB);
-}
-
-void windows_draw(){
-	glUseProgram(window_prog);
-	glBindBuffer(GL_ARRAY_BUFFER, window_vertex_buffer);
-	
-	GLint pos_attrib = glGetAttribLocation(window_prog, "pos");
-	assert(pos_attrib != -1);
-	glEnableVertexAttribArray(pos_attrib);
-	glVertexAttribPointer(pos_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, 0);
-	
-	GLint world_to_norm_uni = glGetUniformLocation(window_prog, "world_to_norm");
-	assert(world_to_norm_uni != -1);
-	glUniformMatrix3fv(world_to_norm_uni, 1, GL_FALSE, viewport->world_to_normal);
-	
-	glActiveTexture(GL_TEXTURE0);
-	GLint tex_attrib = glGetUniformLocation(window_prog, "tex");
-	assert(tex_attrib != -1);
-	glUniform1i(tex_attrib, 0);
-	
-	for(size_t i = 0; i < window_count; i++){
-		win_p w = &windows[i];
-		
-		glBindTexture(GL_TEXTURE_RECTANGLE_ARB, w->texture);
-		
-		GLint pos_and_size_uni = glGetUniformLocation(window_prog, "pos_and_size");
-		assert(pos_and_size_uni != -1);
-		glUniform4f(pos_and_size_uni, w->x, w->y, w->width, w->height);
-		
-		glDrawArrays(GL_QUADS, 0, 4);
-	}
-	
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glUseProgram(0);
-}
-
-
-//
 // Renderer
 //
 void renderer_resize(uint16_t window_width, uint16_t window_height){
@@ -288,7 +198,7 @@ void renderer_draw(){
 	glClear(GL_COLOR_BUFFER_BIT);
 	
 	grid_draw();
-	windows_draw();
+	layers_draw(viewport);
 	cursor_draw();
 }
 
@@ -304,7 +214,11 @@ int main(int argc, char **argv){
 	
 	grid_load();
 	cursor_load();
-	windows_load();
+	layers_load();
+	
+	layer_new(0, 0, 0, image_window.width, image_window.height, image_window.pixel_data);
+	layer_new(1000, 500, 0, image_window.width, image_window.height, image_window.pixel_data);
+	layer_new(-700, -200, 0, image_haruhi.width, image_haruhi.height, image_haruhi.pixel_data);
 	
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false;
@@ -419,7 +333,7 @@ int main(int argc, char **argv){
 	}
 	
 	// Cleanup time
-	windows_unload();
+	layers_unload();
 	cursor_unload();
 	grid_unload();
 	renderer_unload();
