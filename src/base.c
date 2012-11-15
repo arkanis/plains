@@ -206,7 +206,6 @@ void renderer_draw(){
 
 
 int main(int argc, char **argv){
-	uint32_t cycle_duration = 1.0 / 60.0 * 1000;
 	uint16_t win_w = 640, win_h = 480;
 	
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
@@ -222,9 +221,10 @@ int main(int argc, char **argv){
 	
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false;
-	uint32_t ticks = SDL_GetTicks();
 	
 	while (!quit) {
+		SDL_WaitEvent(NULL);
+		
 		while ( SDL_PollEvent(&e) ) {
 			switch(e.type){
 				case SDL_QUIT:
@@ -325,11 +325,6 @@ int main(int argc, char **argv){
 		
 		renderer_draw();
 		SDL_GL_SwapBuffers();
-		
-		int32_t duration = cycle_duration - (SDL_GetTicks() - ticks);
-		if (duration > 0)
-			SDL_Delay(duration);
-		ticks = SDL_GetTicks();
 	}
 	
 	// Cleanup time
