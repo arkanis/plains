@@ -15,6 +15,5 @@ void main(){
 	gl_Position.w = 1;
 	
 	// Flip the y axis right now because the image coord origin is in the top left edge
-	tex_coords.x = pos.x * pos_and_size.z;
-	tex_coords.y = pos_and_size.w - pos.y * pos_and_size.w;
+	tex_coords.xy = pos.xy * pos_and_size.zw;
 }

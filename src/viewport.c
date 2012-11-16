@@ -40,8 +40,9 @@ void vp_changed(viewport_p vp){
 		0, 0, 1
 	});
 	
+	// World to normal matrix
 	sx = 2 / vp->world_size.x;
-	sy = 2 / vp->world_size.y;
+	sy = -2 / vp->world_size.y;
 	tx = -vp->pos.x * (2 / vp->world_size.x);
 	ty = -vp->pos.y * (2 / vp->world_size.y);
 	m3_transpose(vp->world_to_normal, (mat3_t){
@@ -50,6 +51,7 @@ void vp_changed(viewport_p vp){
 		0, 0, 1
 	});
 	
+	// World to screen matrix
 	sx = vp->screen_size.x / vp->world_size.x;
 	sy = vp->screen_size.y / vp->world_size.y;
 	tx = -vp->pos.x * sx + 0.5 * vp->screen_size.x;

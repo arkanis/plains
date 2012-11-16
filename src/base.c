@@ -84,6 +84,7 @@ void grid_draw(){
 		viewport->pos.x * viewport->world_to_screen[0],
 		viewport->pos.y * viewport->world_to_screen[4]
 	};
+	//printf("grid_spacing: %f %f, grid_offset: %f %f\n", grid_spacing.x, grid_spacing.y, grid_offset.x, grid_offset.y);
 	
 	glUseProgram(grid_prog);
 	glBindBuffer(GL_ARRAY_BUFFER, grid_vertex_buffer);
@@ -215,9 +216,9 @@ int main(int argc, char **argv){
 	cursor_load();
 	layers_load();
 	
-	layer_new(0, 0, 0, image_window.width, image_window.height, image_window.pixel_data);
+	layer_new(0, 0, 0, image_haruhi.width, image_haruhi.height, image_haruhi.pixel_data);
 	layer_new(1000, 500, 0, image_window.width, image_window.height, image_window.pixel_data);
-	layer_new(-700, -200, 0, image_haruhi.width, image_haruhi.height, image_haruhi.pixel_data);
+	layer_new(-1000, -500, 0, image_window.width, image_window.height, image_window.pixel_data);
 	
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false;

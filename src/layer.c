@@ -100,4 +100,3 @@ void layers_draw(viewport_p viewport){
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glUseProgram(0);
 }
-
