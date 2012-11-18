@@ -51,7 +51,7 @@ void layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height,
 	layers = realloc(layers, layer_count * sizeof(layer_t));
 	
 	layers[layer_count-1] = (layer_t){
-		.x = x, .y = x, .z = z,
+		.x = x, .y = y, .z = z,
 		.width = width,
 		.height = height,
 		.texture = 0
@@ -60,6 +60,16 @@ void layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height,
 	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, layers[layer_count-1].texture);
 	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data);
 	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+	
+	// Sort layers in z order
+	int sorter(const void *va, const void *vb){
+		layer_p a = (layer_p)va;
+		layer_p b = (layer_p)vb;
+		if (a->z == b->z)
+			return 0;
+		return (a->z < b->z) ? -1 : 1;
+	};
+	qsort(layers, layer_count, sizeof(layer_t), sorter);
 }
 
 void layer_destroy(size_t index){
