@@ -66,6 +66,10 @@ void vp_changed(viewport_p vp){
 void vp_screen_changed(viewport_p vp, uint16_t screen_width, uint16_t screen_height){
 	vp->screen_size = (vec2_t){ screen_width, screen_height };
 	
+	// Adjust the world size to the new screen size. When the user resizes the viewport the size
+	// of things stays the same but the user sees more. This is a more fitting behaviour for a window.
+	vp->world_default_size = vp->screen_size;
+	
 	float sx = 2.0 / screen_width;
 	float sy = -2.0 / screen_height;
 	float tx = -1.0;
