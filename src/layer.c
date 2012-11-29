@@ -43,6 +43,7 @@ void layers_load(){
 void layers_unload(){
 	for(size_t i = 0; i < layer_count; i++)
 		glDeleteTextures(1, &layers[i].texture);
+	glDeleteBuffers(1, &layers_vertex_buffer);
 	glDisable(GL_TEXTURE_RECTANGLE_ARB);
 }
 
@@ -71,6 +72,25 @@ void layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height,
 	};
 	qsort(layers, layer_count, sizeof(layer_t), sorter);
 }
+
+/*
+
+Image data upload workflow:
+
+- Create shared mapping
+- Send client draw request with id of shared mapping
+	- Client maps shared memory
+	- Client draws layer
+	- Client unmaps shared memory
+	- Client sends draw response
+- Make sure that pages are allocated in the mega texture for this scale index
+	- If no pages are yet allocated for the scale index do so
+- Server copies pixel data to mega texture
+	- Copy per page (easy)
+	- Optimization: Find largest rectangles and copy per rectangle
+
+*/
+
 
 void layer_destroy(size_t index){
 	// Not yet meaningfull

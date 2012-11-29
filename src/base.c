@@ -17,6 +17,7 @@
 #include "math.h"
 #include "viewport.h"
 #include "layer.h"
+#include "tile_table.h"
 
 #include "image_window.c"
 #include "image_haruhi.c"
@@ -43,6 +44,8 @@ Pipeline:
 
 // Viewport of the renderer. Data from the viewport is used by other components.
 viewport_p viewport;
+tile_table_p tile_table;
+
 
 //
 // Grid
@@ -165,6 +168,60 @@ void cursor_draw(){
 
 
 //
+// Debuging stuff
+//
+GLuint debug_vertex_buffer, debug_prog;
+
+void debug_load(){
+	debug_prog = load_and_link_program("tiles.vs", "tiles.ps");
+	glGenBuffers(1, &debug_vertex_buffer);
+	assert(debug_vertex_buffer != 0);
+}
+
+void debug_unload(){
+	glDeleteBuffers(1, &debug_vertex_buffer);
+	delete_program_and_shaders(debug_prog);
+}
+
+/**
+ * Renders the tile table texture at the origin.
+ */
+void debug_draw(){
+	uint32_t x = 0, y = 0;
+	uint32_t w = tile_table->width, h = tile_table->height;
+	glBindBuffer(GL_ARRAY_BUFFER, debug_vertex_buffer);
+	const float vertecies[] = {
+		x+0, y+0, 0, 0,
+		x+w, y+0, w, 0,
+		x+w, y+h, w, h,
+		x+0, y+h, 0, h
+	};
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertecies), vertecies, GL_STATIC_DRAW);
+	
+	glUseProgram(debug_prog);
+	GLint pos_tex_attrib = glGetAttribLocation(debug_prog, "pos_and_tex");
+	assert(pos_tex_attrib != -1);
+	glEnableVertexAttribArray(pos_tex_attrib);
+	glVertexAttribPointer(pos_tex_attrib, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, 0);
+	
+	GLint world_to_norm_uni = glGetUniformLocation(debug_prog, "world_to_norm");
+	assert(world_to_norm_uni != -1);
+	glUniformMatrix3fv(world_to_norm_uni, 1, GL_FALSE, viewport->world_to_normal);
+	
+	glActiveTexture(GL_TEXTURE0);
+	GLint tex_attrib = glGetUniformLocation(debug_prog, "tex");
+	assert(tex_attrib != -1);
+	glUniform1i(tex_attrib, 0);
+	
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, tile_table->texture);
+	glDrawArrays(GL_QUADS, 0, 4);
+	
+	glUseProgram(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+//
 // Renderer
 //
 void renderer_resize(uint16_t window_width, uint16_t window_height){
@@ -201,6 +258,7 @@ void renderer_draw(){
 	grid_draw();
 	layers_draw(viewport);
 	cursor_draw();
+	debug_draw();
 }
 
 
@@ -215,10 +273,13 @@ int main(int argc, char **argv){
 	grid_load();
 	cursor_load();
 	layers_load();
+	debug_load();
 	
 	layer_new(0, 0, 1, image_haruhi.width, image_haruhi.height, image_haruhi.pixel_data);
 	layer_new(0, 500, 0, image_window.width, image_window.height, image_window.pixel_data);
 	layer_new(0, -500, 0, image_window.width, image_window.height, image_window.pixel_data);
+	
+	tile_table = tile_table_new(2048, 2048, 128);
 	
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false;
@@ -329,6 +390,9 @@ int main(int argc, char **argv){
 	}
 	
 	// Cleanup time
+	tile_table_destroy(tile_table);
+	
+	debug_unload();
 	layers_unload();
 	cursor_unload();
 	grid_unload();
