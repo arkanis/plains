@@ -176,6 +176,11 @@ void debug_load(){
 	debug_prog = load_and_link_program("tiles.vs", "tiles.ps");
 	glGenBuffers(1, &debug_vertex_buffer);
 	assert(debug_vertex_buffer != 0);
+	
+	size_t tile_count = tile_table_tile_count_for_size(tile_table, image_haruhi.width, image_haruhi.height);
+	tile_id_t tile_ids[tile_count];
+	tile_table_alloc(tile_table, tile_count, tile_ids, NULL);
+	tile_table_upload(tile_table, tile_count, tile_ids, image_haruhi.width, image_haruhi.height, image_haruhi.pixel_data);
 }
 
 void debug_unload(){
@@ -273,13 +278,13 @@ int main(int argc, char **argv){
 	grid_load();
 	cursor_load();
 	layers_load();
-	debug_load();
 	
 	layer_new(0, 0, 1, image_haruhi.width, image_haruhi.height, image_haruhi.pixel_data);
 	layer_new(0, 500, 0, image_window.width, image_window.height, image_window.pixel_data);
 	layer_new(0, -500, 0, image_window.width, image_window.height, image_window.pixel_data);
 	
 	tile_table = tile_table_new(2048, 2048, 128);
+	debug_load();
 	
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false;
