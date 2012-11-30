@@ -6,6 +6,7 @@
 #include <GL/gl.h>
 
 #include "tile_table.h"
+#include "math.h"
 
 
 /**
@@ -24,6 +25,7 @@ tile_table_p tile_table_new(uint32_t texture_width, uint32_t texture_height, uin
 	// Allocate and initialize page meta data structures
 	tt->tile_count = (texture_width / tile_size) * (texture_height / tile_size);
 	tt->tiles = malloc(tt->tile_count * sizeof(tile_t));
+	tt->allocated_tiles = 0;
 	
 	// Initialize the page meta data with free tiles and a proper free list
 	tt->tiles[tt->tile_count-1] = (tile_t){
@@ -91,21 +93,16 @@ void tile_table_alloc(tile_table_p tile_table, size_t tile_id_count, tile_id_p c
 		tile_table->tiles[free_tile].used_by = used_by;
 		tile_ids[i] = free_tile;
 	}
+	
+	tile_table->allocated_tiles += tile_id_count;
 }
 
 
 size_t tile_table_tile_count_for_size(tile_table_p tile_table, uint64_t width, uint64_t height){
-	inline uint64_t iceildiv(uint64_t a, uint64_t b){
-		uint64_t result = a / b;
-		if (a % b != 0)
-			result++;
-		return result;
-	}
-	
 	return iceildiv(width, tile_table->tile_size) * iceildiv(height, tile_table->tile_size);
 }
 
-static void tile_table_id_to_offset(tile_table_p tile_table, tile_id_t id, uint32_t *x, uint32_t *y){
+void tile_table_id_to_offset(tile_table_p tile_table, tile_id_t id, uint32_t *x, uint32_t *y){
 	uint32_t tiles_per_line = tile_table->width / tile_table->tile_size;
 	*y = (id / tiles_per_line) * tile_table->tile_size;
 	*x = (id % tiles_per_line) * tile_table->tile_size;
@@ -127,7 +124,7 @@ void tile_table_upload(tile_table_p tile_table, size_t tile_id_count, tile_id_t 
 			
 			size_t tile_width = (width - x > tile_table->tile_size) ? tile_table->tile_size : width - x;
 			size_t tile_height = (height - y > tile_table->tile_size) ? tile_table->tile_size : height - y;
-			uint8_t * const tile_data = pixel_data + (y * width * 4) + x * 4;
+			const uint8_t * tile_data = pixel_data + (y * width * 4) + x * 4;
 			
 			glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0,
 				tile_x, tile_y, tile_width, tile_height,

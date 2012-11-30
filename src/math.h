@@ -91,3 +91,15 @@ static inline vec2_t v2_norm(vec2_t v){
 	
 	return (vec2_t){ 0, 0 };
 }
+
+
+//
+// Integer arithmetic
+//
+
+static inline uint64_t iceildiv(uint64_t a, uint64_t b){
+	uint64_t result = a / b;
+	if (a % b != 0)
+		result++;
+	return result;
+}

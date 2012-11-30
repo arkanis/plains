@@ -46,6 +46,7 @@ typedef struct {
 	
 	// ID of the next free tile or 0 if no free tile is left
 	tile_id_t next_free_tile;
+	size_t allocated_tiles;
 	
 	// Number of tiles the texture consists of
 	size_t tile_count;
@@ -57,5 +58,6 @@ tile_table_p tile_table_new(uint32_t texture_width, uint32_t texture_height, uin
 void tile_table_destroy(tile_table_p tile_table);
 
 size_t tile_table_tile_count_for_size(tile_table_p tile_table, uint64_t width, uint64_t height);
+void tile_table_id_to_offset(tile_table_p tile_table, tile_id_t id, uint32_t *x, uint32_t *y);
 void tile_table_alloc(tile_table_p tile_table, size_t tile_id_count, tile_id_p const tile_ids, void* used_by);
 void tile_table_upload(tile_table_p tile_table, size_t tile_id_count, tile_id_t tile_ids[tile_id_count], uint64_t width, uint64_t height, const uint8_t *pixel_data);

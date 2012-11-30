@@ -15,7 +15,7 @@ viewport.o: viewport.c viewport.h math.h
 math.o: math.c math.h
 	gcc -c $(GCC_FLAGS) math.c
 
-tile_table.o: tile_table.c tile_table.h
+tile_table.o: tile_table.c tile_table.h math.h
 	gcc -c $(GCC_FLAGS) tile_table.c
 
 clean:
