@@ -85,16 +85,25 @@ void tile_table_destroy(tile_table_p tile_table){
 	free(tile_table);
 }
 
+/**
+ * Makes sure that all tiles in the `tile_ids` array are allocated. That is if a
+ * tile_id in this array is 0 a new tile will be allocated for it. Therefore it's
+ * important that the `tile_ids` array is zero initialized when you allocate it.
+ */
 void tile_table_alloc(tile_table_p tile_table, size_t tile_id_count, tile_id_p const tile_ids, void* used_by){
 	for(size_t i = 0; i < tile_id_count; i++){
+		// Skip tiles that are already allocated
+		if (tile_ids[i] > 0)
+			continue;
+		
 		tile_id_t free_tile = tile_table->next_free_tile;
 		assert(free_tile != 0);
 		tile_table->next_free_tile = tile_table->tiles[free_tile].next_free_tile;
 		tile_table->tiles[free_tile].used_by = used_by;
 		tile_ids[i] = free_tile;
+		
+		tile_table->allocated_tiles++;
 	}
-	
-	tile_table->allocated_tiles += tile_id_count;
 }
 
 

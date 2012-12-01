@@ -283,9 +283,18 @@ int main(int argc, char **argv){
 	
 	tile_table = tile_table_new(2048, 2048, 128);
 	
-	layer_new(tile_table, 0, 0, 1, image_haruhi.width, image_haruhi.height, image_haruhi.pixel_data);
-	layer_new(tile_table, 0, 500, 0, image_window.width, image_window.height, image_window.pixel_data);
-	layer_new(tile_table, 0, -500, 0, image_window.width, image_window.height, image_window.pixel_data);
+	
+	layer_new(0, 0, 0, image_haruhi.width * 2, image_haruhi.height * 2);
+	layer_scale_new(&layers[0], -1, tile_table, viewport);
+	layer_scale_upload(&layers[0], -1, image_haruhi.pixel_data, tile_table);
+	
+	layer_new(0, 500, 0, image_window.width, image_window.height);
+	layer_scale_new(&layers[1], 0, tile_table, viewport);
+	layer_scale_upload(&layers[1], 0, image_window.pixel_data, tile_table);
+	
+	layer_new(0, -500, 0, image_window.width, image_window.height);
+	layer_scale_new(&layers[2], 0, tile_table, viewport);
+	//layer_scale_upload(&layers[2], 0, image_window.pixel_data, tile_table);
 	
 	debug_load();
 	
@@ -366,7 +375,7 @@ int main(int argc, char **argv){
 						case SDL_BUTTON_RIGHT:
 							break;
 						case SDL_BUTTON_WHEELUP:
-							viewport->scale_exp -= 0.1;
+							viewport->scale_exp -= 1;
 							{
 								vec2_t world_cursor = m3_v2_mul(viewport->screen_to_world, cursor_pos);
 								float new_scale = vp_scale_for(viewport, viewport->scale_exp);
@@ -378,7 +387,7 @@ int main(int argc, char **argv){
 							vp_changed(viewport);
 							break;
 						case SDL_BUTTON_WHEELDOWN:
-							viewport->scale_exp += 0.1;
+							viewport->scale_exp += 1;
 							{
 								vec2_t world_cursor = m3_v2_mul(viewport->screen_to_world, cursor_pos);
 								float new_scale = vp_scale_for(viewport, viewport->scale_exp);
