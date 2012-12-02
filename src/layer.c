@@ -189,13 +189,14 @@ void layers_draw(viewport_p viewport, tile_table_p tile_table){
 			
 			// Unfortunately we need all this casting stuff otherwise C will only
 			// use unsigned values and break all negative coordinates.
-			// TODO: adjust tiles size in world space to scale index
 			buffer[bo++] = layer->x + ws_x +    0;  buffer[bo++] = layer->y + ws_y +    0;  buffer[bo++] = u + (float)0;  buffer[bo++] = v + (float)0;
 			buffer[bo++] = layer->x + ws_x + ws_w;  buffer[bo++] = layer->y + ws_y +    0;  buffer[bo++] = u + (float)w;  buffer[bo++] = v + (float)0;
 			buffer[bo++] = layer->x + ws_x + ws_w;  buffer[bo++] = layer->y + ws_y + ws_h;  buffer[bo++] = u + (float)w;  buffer[bo++] = v + (float)h;
 			buffer[bo++] = layer->x + ws_x +    0;  buffer[bo++] = layer->y + ws_y + ws_h;  buffer[bo++] = u + (float)0;  buffer[bo++] = v + (float)h;
 			
 			tiles_to_draw++;
+			// Reset the tile age since we'll use it in this draw operation
+			tile_table->tile_ages[ls->tile_ids[j]] = 0;
 		}
 	}
 	/*
@@ -238,4 +239,6 @@ void layers_draw(viewport_p viewport, tile_table_p tile_table){
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glUseProgram(0);
+	
+	tile_table_cycle(tile_table);
 }

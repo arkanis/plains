@@ -25,7 +25,16 @@ tile_table_p tile_table_new(uint32_t texture_width, uint32_t texture_height, uin
 	// Allocate and initialize page meta data structures
 	tt->tile_count = (texture_width / tile_size) * (texture_height / tile_size);
 	tt->tiles = malloc(tt->tile_count * sizeof(tile_t));
+	tt->tile_ages = calloc(1, tt->tile_count * sizeof(uint8_t));
 	tt->allocated_tiles = 0;
+	
+	// Allocate the sorted list of least used tile ids. Do not insert the
+	// tile id 0 since this tile is reserved for uninitialized tiles. Because
+	// of that we only have `tile_count - 1` ids in that list.
+	tt->least_used_tile_ids = malloc((tt->tile_count-1) * sizeof(size_t));
+	tt->least_used_index = 0;
+	for(size_t i = 1; i < tt->tile_count; i++)
+		tt->least_used_tile_ids[i-1] = i;
 	
 	// Initialize the page meta data with free tiles and a proper free list
 	tt->tiles[tt->tile_count-1] = (tile_t){
@@ -82,6 +91,8 @@ void tile_table_destroy(tile_table_p tile_table){
 	// Now clean up the tile table resources
 	glDeleteTextures(1, &tile_table->texture);
 	free(tile_table->tiles);
+	free(tile_table->tile_ages);
+	free(tile_table->least_used_tile_ids);
 	free(tile_table);
 }
 
@@ -90,22 +101,61 @@ void tile_table_destroy(tile_table_p tile_table){
  * tile_id in this array is 0 a new tile will be allocated for it. Therefore it's
  * important that the `tile_ids` array is zero initialized when you allocate it.
  */
-void tile_table_alloc(tile_table_p tile_table, size_t tile_id_count, tile_id_p const tile_ids, void* used_by){
+void tile_table_alloc(tile_table_p tile_table, size_t tile_id_count, tile_id_p const tile_ids, void* used_at){
 	for(size_t i = 0; i < tile_id_count; i++){
 		// Skip tiles that are already allocated
 		if (tile_ids[i] > 0)
 			continue;
 		
+		tile_id_t free_tile = tile_table->least_used_tile_ids[tile_table->least_used_index];
+		assert(free_tile != 0);
+		tile_table->least_used_index++;
+		
+		// For now reuse tiles when we run out of tiles...
+		//assert(tile_table->least_used_index < tile_table->tile_count - 1);
+		if (tile_table->least_used_index >= tile_table->tile_count - 1)
+			tile_table->least_used_index = 0;
+		
+		/*
 		tile_id_t free_tile = tile_table->next_free_tile;
 		assert(free_tile != 0);
 		tile_table->next_free_tile = tile_table->tiles[free_tile].next_free_tile;
-		tile_table->tiles[free_tile].used_by = used_by;
+		*/
+		
+		tile_table->tiles[free_tile].used_at = used_at;
 		tile_ids[i] = free_tile;
 		
 		tile_table->allocated_tiles++;
 	}
 }
 
+/**
+ * Age each tile by 1 time unit. This way unused tiles get a higher age with time.
+ */
+void tile_table_cycle(tile_table_p tile_table){
+	for(size_t i = 0; i < tile_table->tile_count; i++){
+		if (tile_table->tile_ages[i] < UINT8_MAX)
+			tile_table->tile_ages[i]++;
+	}
+	
+	// Sort least used tile id array after the tile ages. The one with the highest age
+	// should be the first in the array (oldest ones will be revoked first).
+	int sorter(const void *a, const void *b){
+		size_t index_a = *(size_t*)a;
+		size_t index_b = *(size_t*)b;
+		if (tile_table->tile_ages[index_a] == tile_table->tile_ages[index_b])
+			return 0;
+		return (tile_table->tile_ages[index_a] > tile_table->tile_ages[index_b]) ? -1 : 1;
+	};
+	qsort(tile_table->least_used_tile_ids, tile_table->tile_count - 1, sizeof(size_t), sorter);
+	tile_table->least_used_index = 0;
+	/*
+	printf("tiles to revoke: ");
+	for(size_t i = 0; i < tile_table->tile_count - 1; i++)
+		printf("%zu ", tile_table->least_used_tile_ids[i]);
+	printf("\n");
+	*/
+}
 
 size_t tile_table_tile_count_for_size(tile_table_p tile_table, uint64_t width, uint64_t height){
 	return iceildiv(width, tile_table->tile_size) * iceildiv(height, tile_table->tile_size);

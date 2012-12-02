@@ -20,8 +20,9 @@ typedef uint32_t tile_id_t, *tile_id_p;
 #define TILE_FREE 1<<0
 
 typedef union {
-	// When a tile is allocated it points to the layer scale that uses the tile
-	void* used_by;
+	// When a tile is allocated it points to the tile_id within a layer scale. We use
+	// that to set the tile id to 0 when a tile is revoked from a layer scale.
+	tile_id_p used_at;
 	// Data for free tiles (a basic free list)
 	struct {
 		// ID of the next free tile of 0 if no free tiles are left
@@ -51,6 +52,10 @@ typedef struct {
 	// Number of tiles the texture consists of
 	size_t tile_count;
 	tile_t* tiles;
+	uint8_t* tile_ages;
+	
+	size_t* least_used_tile_ids;
+	size_t least_used_index;
 } tile_table_t, *tile_table_p;
 
 
@@ -59,5 +64,7 @@ void tile_table_destroy(tile_table_p tile_table);
 
 size_t tile_table_tile_count_for_size(tile_table_p tile_table, uint64_t width, uint64_t height);
 void tile_table_id_to_offset(tile_table_p tile_table, tile_id_t id, uint32_t *x, uint32_t *y);
-void tile_table_alloc(tile_table_p tile_table, size_t tile_id_count, tile_id_p const tile_ids, void* used_by);
+void tile_table_alloc(tile_table_p tile_table, size_t tile_id_count, tile_id_p const tile_ids, void* used_at);
 void tile_table_upload(tile_table_p tile_table, size_t tile_id_count, tile_id_t tile_ids[tile_id_count], uint64_t width, uint64_t height, const uint8_t *pixel_data);
+
+void tile_table_cycle(tile_table_p tile_table);

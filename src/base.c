@@ -294,7 +294,13 @@ int main(int argc, char **argv){
 	
 	layer_new(0, -500, 0, image_window.width, image_window.height);
 	layer_scale_new(&layers[2], 0, tile_table, viewport);
-	//layer_scale_upload(&layers[2], 0, image_window.pixel_data, tile_table);
+	layer_scale_upload(&layers[2], 0, image_window.pixel_data, tile_table);
+	
+	/*
+	layer_new(-700, -500, 0, image_haruhi.width, image_haruhi.height);
+	layer_scale_new(&layers[3], 0, tile_table, viewport);
+	layer_scale_upload(&layers[3], 0, image_haruhi.pixel_data, tile_table);
+	*/
 	
 	debug_load();
 	
