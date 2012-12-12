@@ -54,11 +54,11 @@ int main(int argc, char *argv[]) {
 	}
 	
 	
-	send( msg_hello(1, "test client", &msg) );
+	send( msg_hello(&msg, 1, "test client", (uint16_t[]){ 1, 7, 42 }, 3) );
 	receive(&msg);
 	msg_print(&msg);
 	
-	send( msg_layer_create(0, 0, 0, 800, 600, &msg) );
+	send( msg_layer_create(&msg, 0, 0, 0, 800, 600) );
 	receive(&msg);
 	msg_print(&msg);
 	

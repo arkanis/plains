@@ -90,12 +90,12 @@ int main(int argc, char *argv[]) {
 			return msg_size;
 		}
 		
-		send( msg_welcome(1, "test server", &msg) );
+		send( msg_welcome(&msg, 1, "test server", NULL, 0) );
 		
 		while( receive(&msg) > 0 ){
 			msg_print(&msg);
 			if (msg.type == MSG_LAYER_CREATE)
-				send( msg_status(msg.seq, 0, 41, &msg) );
+				send( msg_status(&msg, msg.seq, 0, 41) );
 		}
 		
 		printf("connection closed\n");

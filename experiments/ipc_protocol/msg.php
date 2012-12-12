@@ -1,15 +1,20 @@
 <?php
 
+$header = [
+	'type' => 'uint16_t',
+	'seq' => 'uint16_t'
+];
 $messages = [
 	// Handshake
 	'hello' => [
 		'version' => 'uint8_t',
-		'name' => 'string'
+		'name' => ['char', 'max_len' => 64],
+		'caps' => ['uint16_t', 'max_len' => 64]
 	],
 	'welcome' => [
 		'version' => 'uint8_t',
-		'name' => 'string'
-		// later: caps bit map
+		'name' => ['char', 'max_len' => 64],
+		'caps' => ['uint16_t', 'max_len' => 64]
 	],
 	
 	// Common messages
@@ -45,6 +50,22 @@ $messages = [
 ];
 $len_type = 'size_t';
 
+$types = [
+	'int8_t'   => ['size' => 1, 'format' => '%hhd'],
+	'int16_t'  => ['size' => 2, 'format' => '%hd'],
+	'int32_t'  => ['size' => 4, 'format' => '%d'],
+	'int64_t'  => ['size' => 8, 'format' => '%ld'],
+	'uint8_t'  => ['size' => 1, 'format' => '%hhu'],
+	'uint16_t' => ['size' => 2, 'format' => '%hu'],
+	'uint32_t' => ['size' => 4, 'format' => '%u'],
+	'uint64_t' => ['size' => 8, 'format' => '%lu'],
+	'size_t'   => ['size' => 8, 'format' => '%zu'],
+	'int'      => ['size' => 4, 'format' => '%d'],
+	'float'    => ['size' => 4, 'format' => '%f'],
+	'double'   => ['size' => 8, 'format' => '%lf'],
+	'char'     => ['size' => 1, 'format' => '%s']
+];
+
 
 //
 // Header file
@@ -55,16 +76,19 @@ ob_start();
 #pragma once
 
 #include <stdint.h>
+#include <string.h>
 
 typedef struct {
-	uint16_t type;
-	uint16_t seq;
+<?	foreach($header as $name => $type): ?>
+	<?= $type ?> <?= $name ?>;
+<?	endforeach ?>
 	union {
 <?	foreach($messages as $message_name => $fields): ?>
 		struct {
 <?			foreach($fields as $name => $type): ?>
-<?			if($type == 'string'): ?>
-			char* <?= $name ?>;
+<?			if( is_array($type) ): ?>
+			<?= $len_type ?> <?= $name ?>_length;
+			<?= $type[0] ?> *<?= $name ?>;
 <?			else: ?>
 			<?= $type ?> <?= $name ?>;
 <?			endif ?>
@@ -74,7 +98,25 @@ typedef struct {
 	};
 } msg_t, *msg_p;
 
-#define MSG_MAX_SIZE 4096
+<?
+$header_size = 0;
+foreach($header as $name => $type)
+	$header_size += $types[$type]['size'];
+
+// Find the largest message and use it's size to determine the max size of the buffers
+$max_message_size = 0;
+foreach($messages as $message_name => $fields){
+	$message_size = 0;
+	foreach($fields as $name => $type){
+		if ( is_array($type) )
+			$message_size += $types[$len_type]['size'] + $type['max_len'] * $types[$type[0]]['size'];
+		else
+			$message_size += $types[$type]['size'];
+	}
+	$max_message_size = max($max_message_size, $message_size);
+}
+?>
+#define MSG_MAX_SIZE <?= $header_size + $max_message_size ?> 
 
 <? $index = 0 ?>
 <?	foreach($messages as $name => $fields): ?>
@@ -89,16 +131,37 @@ ssize_t msg_deserialize(msg_p msg, void* buffer, size_t buffer_size);
 
 
 <?	foreach($messages as $message_name => $fields): ?>
-<?		$args = [] ?>
-<?		foreach($fields as $name => $type): ?>
-<?			$args[] = ($type == 'string' ? 'char*' : $type) . ' ' . $name; ?>
-<?		endforeach ?>
-static inline msg_p msg_<?= $message_name ?>(<?= join(', ', $args) ?>, msg_p msg){
+<?
+		$args = [];
+		foreach($fields as $name => $type){
+			if ( is_array($type) ) {
+				if ( $type[0] == 'char' ) {
+					$args[] = 'char* ' . $name;
+				} else {
+					$args[] = $type[0] . '* ' . $name;
+					$args[] = $len_type . ' ' . $name . '_length';
+				}
+			} else {
+				$args[] = $type . ' ' . $name;
+			}
+		}
+?>
+static inline msg_p msg_<?= $message_name ?>(msg_p msg, <?= join(', ', $args) ?>){
 	msg->type = MSG_<?= strtoupper($message_name) ?>;
 	msg->seq = 0;
 	
 <?	foreach($fields as $name => $type): ?>
+<?		if ( is_array($type) ): ?>
+<?			if ( $type[0] == 'char' ): ?>
 	msg-><?= $message_name ?>.<?= $name ?> = <?= $name ?>;
+	msg-><?= $message_name ?>.<?= $name ?>_length = strlen(<?= $name ?>);
+<?			else: ?>
+	msg-><?= $message_name ?>.<?= $name ?> = <?= $name ?>;
+	msg-><?= $message_name ?>.<?= $name ?>_length = <?= $name ?>_length;
+<?			endif ?>
+<?		else: ?>
+	msg-><?= $message_name ?>.<?= $name ?> = <?= $name ?>;
+<?		endif ?>
 <?	endforeach ?>
 	
 	return msg;
@@ -113,18 +176,10 @@ file_put_contents("msg.h", ob_get_clean());
 // Implementation
 //
 
-$printf_types = [
-	'int8_t' => '%hhd', 'int16_t' => '%hd', 'int32_t' => '%d', 'int64_t' => '%ld',
-	'uint8_t' => '%hhu', 'uint16_t' => '%hu', 'uint32_t' => '%u', 'uint64_t' => '%lu',
-	'int' => '%d', 'float' => '%f', 'double' => '%lf', 'string' => '%s'
-];
-
-
 ob_start();
 ?>
 #include <stdio.h>
 #include <assert.h>
-#include <string.h>
 #include "msg.h"
 
 const char* msg_types[] = {
@@ -138,18 +193,34 @@ void msg_print(msg_p msg){
 	switch (msg->type){
 <?	foreach($messages as $message_name => $fields): ?>
 		case MSG_<?= strtoupper($message_name) ?>:
-<?			$format = [] ?>
-<?			$args = [] ?>
+			printf("%s %hu: ", msg_types[msg->type], msg->seq);
 <?			foreach($fields as $name => $type): ?>
-<?				$format[] = sprintf('%s: %s', $name, $printf_types[$type]) ?>
-<?				$args[] = sprintf('msg->%s.%s', $message_name, $name) ?>
+<?				if ( is_array($type) ): ?>
+<?					if ( $type[0] == 'char' ): ?>
+			printf(<?= '"' . $name . ': (' . $types[$len_type]['format'] . ')\"%.*s\" "' ?>, msg-><?= $message_name ?>.<?= $name ?>_length,
+				(int)msg-><?= $message_name ?>.<?= $name ?>_length, msg-><?= $message_name ?>.<?= $name ?>);
+<?					else: ?>
+			printf(<?= '"' . $name . ': (' . $types[$len_type]['format'] . ')[ "' ?>, msg-><?= $message_name ?>.<?= $name ?>_length);
+			for(size_t i = 0; i < msg-><?= $message_name ?>.<?= $name ?>_length; i++)
+				printf(<?= '"' . $types[$type[0]]['format'] . ' "' ?>, msg-><?= $message_name ?>.<?= $name ?>[i]);
+			printf("] ");
+<?					endif ?>
+<?				else: ?>
+			printf(<?= '"' . $name . ': ' . $types[$type]['format'] . ' "' ?>, msg-><?= $message_name ?>.<?= $name ?>);
+<?				endif ?>
 <?			endforeach ?>
-			printf("%s(%hu): ", msg_types[msg->type], msg->seq);
-			printf(<?= '"'.join(', ', $format).'\n"' ?>, <?= join(', ', $args) ?>);
+			printf("\n");
 			break;
 <?	endforeach ?>
 		default:
-			printf("unknown message, type: %hhu, seq: %hu\n", msg->type, msg->seq);
+<?
+			$format = []; $args = [];
+			foreach($header as $name => $type){
+				$format[] = $name . ': ' . $types[$type]['format'];
+				$args[] = 'msg->' . $name;
+			}
+?>
+			printf(<?= '"unknown message, ' . join(', ', $format) . '\n"' ?>, <?= join(', ', $args) ?>);
 			break;
 	}
 }
@@ -157,7 +228,7 @@ void msg_print(msg_p msg){
 ssize_t msg_serialize(msg_p msg, void* buffer, size_t buffer_size){
 	void* ptr = buffer;
 	
-<?	foreach(['type' => 'uint16_t', 'seq' => 'uint16_t'] as $name => $type): ?>
+<?	foreach($header as $name => $type): ?>
 	assert(ptr + sizeof(<?= $type ?>) <= buffer + buffer_size);
 	*((<?= $type ?>*)ptr) = msg-><?= $name ?>;
 	ptr += sizeof(<?= $type ?>);
@@ -167,16 +238,16 @@ ssize_t msg_serialize(msg_p msg, void* buffer, size_t buffer_size){
 <?	foreach($messages as $message_name => $fields): ?>
 		case MSG_<?= strtoupper($message_name) ?>:
 <?			foreach($fields as $name => $type): ?>
-<?				if ($type == 'string'): ?>
+<?				if ( is_array($type) ): ?>
 			{
-				<?= $len_type ?> len = strlen(msg-><?= $message_name ?>.<?= $name ?>) + 1;
 				assert(ptr + sizeof(<?= $len_type ?>) <= buffer + buffer_size);
-				*((<?= $len_type ?>*)ptr) = len;
+				*((<?= $len_type ?>*)ptr) = msg-><?= $message_name ?>.<?= $name ?>_length;
 				ptr += sizeof(<?= $len_type ?>);
 				
-				assert(ptr + len <= buffer + buffer_size);
-				memcpy(ptr, msg-><?= $message_name ?>.<?= $name ?>, len);
-				ptr += len;
+				size_t length_in_bytes = msg-><?= $message_name ?>.<?= $name ?>_length * sizeof(<?= $type[0] ?>);
+				assert(ptr + length_in_bytes <= buffer + buffer_size);
+				memcpy(ptr, msg-><?= $message_name ?>.<?= $name ?>, length_in_bytes);
+				ptr += length_in_bytes;
 			}
 <?				else: ?>
 			assert(ptr + sizeof(<?= $type ?>) <= buffer + buffer_size);
@@ -197,7 +268,7 @@ ssize_t msg_serialize(msg_p msg, void* buffer, size_t buffer_size){
 ssize_t msg_deserialize(msg_p msg, void* buffer, size_t buffer_size){
 	void* ptr = buffer;
 	
-<?	foreach(['type' => 'uint16_t', 'seq' => 'uint16_t'] as $name => $type): ?>
+<?	foreach($header as $name => $type): ?>
 	assert(ptr + sizeof(<?= $type ?>) <= buffer + buffer_size);
 	msg-><?= $name ?> = *((<?= $type ?>*)ptr);
 	ptr += sizeof(<?= $type ?>);
@@ -207,15 +278,16 @@ ssize_t msg_deserialize(msg_p msg, void* buffer, size_t buffer_size){
 <?	foreach($messages as $message_name => $fields): ?>
 		case MSG_<?= strtoupper($message_name) ?>:
 <?			foreach($fields as $name => $type): ?>
-<?				if ($type == 'string'): ?>
+<?				if ( is_array($type) ): ?>
 			{
 				assert(ptr + sizeof(<?= $len_type ?>) <= buffer + buffer_size);
-				<?= $len_type ?> len = *((<?= $len_type ?>*)ptr);
+				msg-><?= $message_name ?>.<?= $name ?>_length = *((<?= $len_type ?>*)ptr);
 				ptr += sizeof(<?= $len_type ?>);
 				
-				assert(ptr + len <= buffer + buffer_size);
+				size_t length_in_bytes = msg-><?= $message_name ?>.<?= $name ?>_length * sizeof(<?= $type[0] ?>);
+				assert(ptr + length_in_bytes <= buffer + buffer_size);
 				msg-><?= $message_name ?>.<?= $name ?> = ptr;
-				ptr += len;
+				ptr += length_in_bytes;
 			}
 <?				else: ?>
 			assert(ptr + sizeof(<?= $type ?>) <= buffer + buffer_size);
