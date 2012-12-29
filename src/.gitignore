@@ -1,3 +1,7 @@
 base
 *.o
 core
+test_server
+test_client
+msg.c
+msg.h
