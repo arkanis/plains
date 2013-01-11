@@ -28,3 +28,4 @@ void vp_destroy(viewport_p vp);
 void vp_changed(viewport_p vp);
 void vp_screen_changed(viewport_p vp, uint16_t screen_width, uint16_t screen_height);
 float vp_scale_for(viewport_p vp, float exp);
+void vp_vis_world_rect(viewport_p vp, int64_t *x, int64_t *y, uint64_t *w, uint64_t *h);

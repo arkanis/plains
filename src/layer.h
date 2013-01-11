@@ -50,6 +50,11 @@ typedef struct {
 	uint64_t width, height;
 	int32_t z;
 	
+	// Client index and private data for the client, e.g. pointer to a data
+	// structure in the clients address space.
+	size_t client_idx;
+	void* private;
+	
 	// Pointer into a double linked list of layer scales. We just remember the
 	// pointer to the current scale. If we zoom in we follow the larger link,
 	// when zooming out we follow the smaller link.
@@ -62,8 +67,16 @@ extern size_t layer_count;
 
 void layers_load();
 void layers_unload();
-void layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height);
+draw_request_tree_p layers_in_rect(int64_t x, int64_t y, uint64_t width, uint64_t height, float current_scale_exp);
+
+size_t layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height, void* private);
 void layer_scale_new(layer_p layer, scale_index_t scale_index, tile_table_p tile_table, viewport_p viewport);
-void layer_scale_upload(layer_p layer, scale_index_t scale_index, const uint8_t *pixel_data, tile_table_p tile_table);
+void layer_scale_upload(layer_p layer, scale_index_t scale_index, uint64_t x, uint64_t x, uint64_t width, uint64_t height, const uint8_t *pixel_data, tile_table_p tile_table);
+//void layer_scale_upload(layer_p layer, scale_index_t scale_index, const uint8_t *pixel_data, tile_table_p tile_table);
 void layer_destroy(size_t index);
-void layers_draw(viewport_p viewport, tile_table_p tile_table);
+
+size_t layer_scale_tile_count_for_rect(layer_scale_p, tile_table_p tile_table, uint64_t x, uint64_t x, uint64_t width, uint64_t height);
+void layer_scale_tile_ids_for_rect(layer_scale_p, tile_table_p tile_table, uint64_t x, uint64_t x, uint64_t width, uint64_t height);
+
+typedef const uint8_t* (*layer_draw_proc_t)(layer_p layer, layer_scale_p scale);
+void layers_draw(viewport_p viewport, tile_table_p tile_table, layer_draw_proc_t draw_proc);

@@ -7,6 +7,8 @@
 #include "common.h"
 #include "math.h"
 #include "viewport.h"
+#include "draw_request_tree.h"
+
 
 layer_p layers;
 size_t layer_count;
@@ -40,7 +42,32 @@ void layers_unload(){
 	glDisable(GL_TEXTURE_RECTANGLE_ARB);
 }
 
-void layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height){
+draw_request_tree_p layers_in_rect(int64_t x, int64_t y, uint64_t width, uint64_t height, float current_scale_exp){
+	draw_request_tree_p tree = draw_request_tree_new((draw_request_t){});
+	
+	for(size_t i = 0; i < layer_count; i++){
+		layer_p layer = &layers[i];
+		layer_scale_p ls = layers[i].current_scale;
+		
+		if ( !(layer->x < x + width && layer->x + layer->width >= x && layer->y < y + height && layer->y + layer->height >= y) )
+			break;
+		
+		int64_t rx = (layer->x > x) ? layer->x : x;
+		int64_t ry = (layer->y > y) ? layer->y : y;
+		uint64_t rw = ((layer->x + layer->width > x + width) ? x + width : layer->x + layer->width) - rx;
+		uint64_t rh = ((layer->y + layer->height > y + height) ? y + height : layer->y + layer->height) - ry;
+		
+		draw_request_tree_append(tree, (draw_request_t){
+			.x = rx, .y = ry, .w = rw, .h = rh,
+			.layer_idx = i,
+			.scale_exp = (layer->current_scale) ? layer->current_scale->scale_index : current_scale_exp,
+			.shm_fd = -1, .req_seq = 0, .flags = 0
+		});
+	}
+}
+
+
+size_t layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height, void* private){
 	layer_count++;
 	layers = realloc(layers, layer_count * sizeof(layer_t));
 	
@@ -49,10 +76,12 @@ void layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height)
 		.x = x, .y = y, .z = z,
 		.width = width,
 		.height = height,
+		.private = private,
 		.current_scale = NULL
 	};
 	
 	// Sort layers in z order
+	/* Not for now since we use the index as ID
 	int sorter(const void *va, const void *vb){
 		layer_p a = (layer_p)va;
 		layer_p b = (layer_p)vb;
@@ -61,6 +90,9 @@ void layer_new(int64_t x, int64_t y, int32_t z, uint64_t width, uint64_t height)
 		return (a->z < b->z) ? -1 : 1;
 	};
 	qsort(layers, layer_count, sizeof(layer_t), sorter);
+	*/
+	
+	return layer_count-1;
 }
 
 void layer_scale_new(layer_p layer, scale_index_t scale_index, tile_table_p tile_table, viewport_p viewport){
@@ -106,7 +138,7 @@ void layer_scale_new(layer_p layer, scale_index_t scale_index, tile_table_p tile
 	}
 }
 
-void layer_scale_upload(layer_p layer, scale_index_t scale_index, const uint8_t *pixel_data, tile_table_p tile_table){
+void layer_scale_upload(layer_p layer, scale_index_t scale_index, uint64_t x, uint64_t x, uint64_t width, uint64_t height, const uint8_t *pixel_data, tile_table_p tile_table){
 	// Find the layer scale
 	layer_scale_p ls = layer->current_scale;
 	if (ls->scale_index > scale_index) {
@@ -117,7 +149,7 @@ void layer_scale_upload(layer_p layer, scale_index_t scale_index, const uint8_t 
 			ls = ls->larger;
 	}
 	
-	// Stop if we didn't find the matching layer
+	// Stop if we didn't find the matching layer scale
 	if(ls == NULL || ls->scale_index != scale_index)
 		return;
 	
@@ -156,7 +188,7 @@ static void layer_scale_tile_id_to_offset(layer_scale_p layer_scale, tile_id_t i
 	*x = (id % tiles_per_line) * tile_table->tile_size;
 }
 
-void layers_draw(viewport_p viewport, tile_table_p tile_table){
+void layers_draw(viewport_p viewport, tile_table_p tile_table, layer_draw_proc_t draw_proc){
 	// First allocate a vertex buffer for all tiles (not the perfect solution, we would actually need the count of displayed tiles)
 	glBindBuffer(GL_ARRAY_BUFFER, layers_vertex_buffer);
 	glBufferData(GL_ARRAY_BUFFER, tile_table->tile_count * 16 * sizeof(float), NULL, GL_STREAM_DRAW);
@@ -170,6 +202,9 @@ void layers_draw(viewport_p viewport, tile_table_p tile_table){
 	for(size_t i = 0; i < layer_count; i++){
 		layer_p layer = &layers[i];
 		layer_scale_p ls = layers[i].current_scale;
+		// Ignore all layers that do not yet have a scale
+		if (ls == NULL)
+			continue;
 		float scale = vp_scale_for(viewport, ls->scale_index);
 		
 		// world space tile size (the smaller the scale the larger a tile becomes)
@@ -241,4 +276,29 @@ void layers_draw(viewport_p viewport, tile_table_p tile_table){
 	glUseProgram(0);
 	
 	tile_table_cycle(tile_table);
+}
+
+size_t layer_scale_tile_count_for_rect(layer_scale_p, tile_table_p tile_table, uint64_t x, uint64_t x, uint64_t width, uint64_t height){
+	// Calculate affected size (the size of the rect when x and y are aligned to their tile boundaries)
+	uint64_t affected_width = width + (x % tile_table->tile_size);
+	uint64_t affected_height = height + (y % tile_table->tile_size);
+	
+	return iceildiv(affected_width, tile_table->tile_size) * iceildiv(affected_height, tile_table->tile_size);
+}
+
+void layer_scale_tile_ids_for_rect(layer_scale_p, tile_table_p tile_table, uint64_t x, uint64_t x, uint64_t width, uint64_t height, tile_id_p tiles){
+	// Calculate affected size (the size of the rect when x and y are aligned to their tile boundaries)
+	uint64_t affected_width = width + (x % tile_table->tile_size);
+	uint64_t affected_height = height + (y % tile_table->tile_size);
+	size_t tile_count_x = affected_width / tile_table->tile_size;
+	size_t tile_count_y = affected_height / tile_table->tile_size;
+	size_t tile_start_x = x / tile_table->tile_size;
+	size_t tile_start_y = y / tile_table->tile_size;
+	
+	for(size_t j = 0; j < tile_count_y; j++){
+		for(size_t i = 0; i < tile_count_x; i++){
+			// Unfinished...
+			tiles[j * tile_count_x + i] = 
+		}
+	}
 }

@@ -86,3 +86,12 @@ void vp_screen_changed(viewport_p vp, uint16_t screen_width, uint16_t screen_hei
 float vp_scale_for(viewport_p vp, float exp){
 	return powf(vp->scale_base, exp);
 }
+
+void vp_vis_world_rect(viewport_p vp, int64_t *x, int64_t *y, uint64_t *w, uint64_t *h){
+	float rw = vp->world_size.x * vp->scale;
+	float rh = vp->world_size.y * vp->scale;
+	if (x) *x = vp->pos.x - rw / 2;
+	if (y) *y = vp->pos.y - rh / 2;
+	if (w) *w = rw;
+	if (h) *h = rh;
+}

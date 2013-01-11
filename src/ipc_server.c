@@ -75,12 +75,28 @@ int ipc_server_send(ipc_server_p server, size_t client_idx, msg_p msg){
 	msg_queue_p out = &server->clients[client_idx].out;
 	void* buffer = msg_queue_start_enqueue(out);
 	if (buffer == NULL)
-		return 1;
+		return -1;
 	
+	msg->seq = server->clients[client_idx].seq++;
 	size_t buffer_filled = msg_serialize(msg, buffer, MSG_MAX_SIZE);
-	msg_queue_end_enqueue(out, buffer, buffer_filled);
-	return 0;
+	msg_queue_end_enqueue(out, buffer, buffer_filled, -1);
+	
+	return msg->seq;
 }
+
+int ipc_server_send_with_fd(ipc_server_p server, size_t client_idx, msg_p msg, int fd){
+	msg_queue_p out = &server->clients[client_idx].out;
+	void* buffer = msg_queue_start_enqueue(out);
+	if (buffer == NULL)
+		return -1;
+	
+	msg->seq = server->clients[client_idx].seq++;
+	size_t buffer_filled = msg_serialize(msg, buffer, MSG_MAX_SIZE);
+	msg_queue_end_enqueue(out, buffer, buffer_filled, fd);
+	
+	return msg->seq;
+}
+
 
 int ipc_server_broadcast(ipc_server_p server, msg_p msg){
 	int dropped_messages = 0;
@@ -92,8 +108,9 @@ int ipc_server_broadcast(ipc_server_p server, msg_p msg){
 			continue;
 		}
 		
+		msg->seq = server->clients[client_idx].seq++;
 		size_t buffer_filled = msg_serialize(msg, buffer, MSG_MAX_SIZE);
-		msg_queue_end_enqueue(out, buffer, buffer_filled);
+		msg_queue_end_enqueue(out, buffer, buffer_filled, msg->fd);
 	}
 	
 	return dropped_messages;
@@ -146,7 +163,7 @@ void ipc_server_cycle(ipc_server_p server, int timeout){
 			on_client_disconnect(server, i);
 			// No point of receiving or sending messages to the closed fd, so skip
 			// the rest. Also let someone outside clean up the client private data.
-			// Therefore abort the entire poll stuff.
+			// Therefore abort the entire poll cycle.
 			return;
 		}
 		
@@ -155,21 +172,39 @@ void ipc_server_cycle(ipc_server_p server, int timeout){
 			// or we run out of free buffers.
 			void* buffer = NULL;
 			while( (buffer = msg_queue_start_enqueue(&server->clients[i].in)) != NULL ){
-				ssize_t bytes_read = read(poll_fds[i+1].fd, buffer, MSG_MAX_SIZE);
-				
-				// Break the read loop on an unexpected EOF
-				if (bytes_read == 0)
-					break;
+				int fd = -1;
+				uint8_t aux_buffer[CMSG_SPACE(sizeof(fd))];
+				struct msghdr msghdr = (struct msghdr){
+					.msg_name = NULL, .msg_namelen = 0,
+					.msg_iov = (struct iovec[]){ {buffer, MSG_MAX_SIZE} },
+					.msg_iovlen = 1,
+					.msg_control = aux_buffer,
+					.msg_controllen = sizeof(aux_buffer),
+					.msg_flags = 0
+				};
+				ssize_t bytes_received = recvmsg(poll_fds[i+1].fd, &msghdr, MSG_CMSG_CLOEXEC);
 				
 				// Break the read loop on failure and report it if its an error unconcerned
 				// to non blocking IO.
-				if (bytes_read == -1){
+				if (bytes_received == -1){
 					if (errno != EWOULDBLOCK && errno != EAGAIN)
-						perror("read() failed");
+						perror("recvmsg() failed");
 					break;
 				}
 				
-				msg_queue_end_enqueue(&server->clients[i].in, buffer, bytes_read);
+				// Break the read loop on an unexpected EOF
+				if (bytes_received == 0)
+					break;
+				
+				// Look for any file descriptors that were send along with the message
+				for(struct cmsghdr *cm = CMSG_FIRSTHDR(&msghdr); cm != NULL; cm = CMSG_NXTHDR(&msghdr, cm)){
+					if (cm->cmsg_level == SOL_SOCKET && cm->cmsg_type == SCM_RIGHTS){
+						fd = *( (int*) CMSG_DATA(cm) );
+						break;
+					}
+				}
+				
+				msg_queue_end_enqueue(&server->clients[i].in, buffer, bytes_received, fd);
 			}
 		}
 		
@@ -178,12 +213,56 @@ void ipc_server_cycle(ipc_server_p server, int timeout){
 			// to send or we would block again.
 			void* buffer = NULL;
 			size_t buffer_size = 0;
-			while( (buffer = msg_queue_start_dequeue(&server->clients[i].out, &buffer_size)) != NULL ){
-				ssize_t bytes_written = write(poll_fds[i+1].fd, buffer, buffer_size);
-				if (bytes_written != buffer_size)
-					fprintf(stderr, "write() failed: only %zd bytes of %zu bytes written\n", bytes_written, buffer_size);
-				if (bytes_written == -1)
-					perror("write() failed");
+			int fd = 0;
+			while( (buffer = msg_queue_start_dequeue(&server->clients[i].out, &buffer_size, &fd)) != NULL ){
+				
+				if (fd == -1) {
+					// No file descriptor to send, so write() is enought
+					ssize_t bytes_written = write(poll_fds[i+1].fd, buffer, buffer_size);
+					if (bytes_written == -1) {
+						// If we don't got EWOULDBLOCK something went really wrong
+						if (errno != EWOULDBLOCK)
+							perror("write() failed");
+						// Break anyway since we can not send any more messages and
+						// doing an endless loop with error isn't a good idea.
+						break;
+					} else if (bytes_written != buffer_size) {
+						fprintf(stderr, "write() failed: only %zd bytes of %zu bytes written\n", bytes_written, buffer_size);
+						break;
+					}
+				} else {
+					// We need to send a file descriptor along, so take out the big guns
+					uint8_t aux_buffer[CMSG_SPACE(sizeof(fd))];
+					struct msghdr msghdr = (struct msghdr){
+						.msg_name = NULL, .msg_namelen = 0,
+						.msg_iov = (struct iovec[]){ {buffer, buffer_size} },
+						.msg_iovlen = 1,
+						.msg_control = aux_buffer,
+						.msg_controllen = sizeof(aux_buffer),
+						.msg_flags = 0
+					};
+					
+					struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msghdr);
+					cmsg->cmsg_level = SOL_SOCKET;
+					cmsg->cmsg_type = SCM_RIGHTS;
+					cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
+					
+					int *fdptr = (int*) CMSG_DATA(cmsg);
+					*fdptr = fd;
+					msghdr.msg_controllen = cmsg->cmsg_len;
+					
+					ssize_t bytes_send = sendmsg(poll_fds[i+1].fd, &msghdr, 0);
+					if (bytes_send == -1) {
+						if (errno != EWOULDBLOCK)
+							perror("sendmsg() failed");
+						break;
+					} else if (bytes_send != buffer_size) {
+						fprintf(stderr, "write() failed: only %zd bytes of %zu bytes written\n", bytes_send, buffer_size);
+						break;
+					}
+				}
+				
+				// If all went well dequeue the message
 				msg_queue_end_dequeue(&server->clients[i].out, buffer);
 			}
 		}
@@ -198,6 +277,7 @@ void on_client_connect(ipc_server_p server, int client_fd){
 		.fd = client_fd,
 		.in = msg_queue_new(server->queue_length),
 		.out = msg_queue_new(server->queue_length),
+		.seq = 0,
 		.private = NULL
 	};
 	
