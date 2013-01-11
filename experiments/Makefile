@@ -13,5 +13,9 @@ xcb-client: xcb-client.c
 x-sample: x-sample.c
 	gcc x-sample.c -o x-sample -lX11
 
+image_loader: image_loader.c
+	gcc -std=gnu99 image_loader.c -o image_loader -lm
+
+
 clean:
-	rm -f basic-xgl x-client xcb-client x-sample
+	rm -f basic-xgl x-client xcb-client x-sample image_loader
