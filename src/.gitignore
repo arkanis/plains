@@ -7,3 +7,5 @@ msg.c
 msg.h
 uint64_tree.c
 uint64_tree.h
+test_tree
+image_viewer
