@@ -1,0 +1,34 @@
+1: build tree of draw requests
+	send draw requests
+	clear frame buffer
+	set timeout (e.g. 10 ms)
+
+2: incomming draw response
+	status:
+		0 -> ok, continue
+		1 -> failed, draw placeholder instead
+		2 -> failed, draw nothing at all
+	in order?
+		draw
+		check for scheduled responses blocked by this one and draw them if possible
+	else
+		schedule for drawing
+
+3: all draw responses arrived within timeout
+	flip back buffer
+	free shared memory buffers of draw responses
+
+4: timeout fires and some responses are still missing
+	draw all scheduled responses, replace missing layers with placeholder tile
+	mark all shared memory buffers as retained
+		keep them available for later redrawing
+		set a timestamp for them so we know how old they are (to throw them away when we no longer need them)
+
+5: late draw response arrives
+	use retained shared memory buffers to fill tile table and draw entire screen
+	free all shared memory buffers
+
+6: user interaction with late draw responses still missing
+	issue new draw call (send out new draw requests, ect.)
+	if timeout is missed again:
+		use retained shared memory buffer from prev request to reconstruct as much of the missing buffer as possible. fill the rest with placeholder tiles
