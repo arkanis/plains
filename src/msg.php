@@ -30,7 +30,8 @@ $messages = [
 		'y' => 'int64_t',
 		'z' => 'int64_t',
 		'width' => 'uint64_t',
-		'height' => 'uint64_t'
+		'height' => 'uint64_t',
+		'private' => 'void*'
 	],
 	
 	// Events triggered by the server
@@ -57,6 +58,7 @@ $messages = [
 	],
 	'draw' => [
 		'layer_id' => 'uint32_t',
+		'private' => 'void*',
 		
 		'x' => 'int64_t',
 		'y' => 'int64_t',
@@ -64,9 +66,7 @@ $messages = [
 		'width' => 'uint64_t',
 		'height' => 'uint64_t',
 		'scale_index' => 'int8_t',
-		'scale' => 'float',
-		
-		'shm_id' => 'int'
+		'scale' => 'float'
 	]
 ];
 $len_type = 'size_t';
@@ -84,7 +84,9 @@ $types = [
 	'int'      => ['size' => 4, 'format' => '%d'],
 	'float'    => ['size' => 4, 'format' => '%f'],
 	'double'   => ['size' => 8, 'format' => '%lf'],
-	'char'     => ['size' => 1, 'format' => '%s']
+	'char'     => ['size' => 1, 'format' => '%s'],
+	'void*'    => ['size' => 8, 'format' => '%p'],
+	'fd_t'     => ['size' => 4, 'format' => '%d']
 ];
 
 
@@ -118,6 +120,7 @@ typedef struct {
 		} <?= $message_name ?>;
 <?	endforeach ?>
 	};
+	int fd;
 } msg_t, *msg_p;
 
 <?
