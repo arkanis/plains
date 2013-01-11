@@ -43,9 +43,7 @@ $messages = [
 		'width' => 'uint64_t',
 		'height' => 'uint64_t',
 		'scale_index' => 'int8_t',
-		'scale' => 'float',
-		
-		'shm_id' => 'int'
+		'scale' => 'float'
 	]
 ];
 $len_type = 'size_t';
@@ -96,6 +94,7 @@ typedef struct {
 		} <?= $message_name ?>;
 <?	endforeach ?>
 	};
+	int fd;
 } msg_t, *msg_p;
 
 <?

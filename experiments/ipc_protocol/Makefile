@@ -6,7 +6,7 @@ msg.c msg.h: msg.php
 	php msg.php
 
 msg.o: msg.c msg.h
-	gcc -c $(GCC_FLAGS) msg.c
+	gcc $(GCC_FLAGS) -c msg.c
 
 client: client.c msg.o
 	gcc $(GCC_FLAGS) client.c msg.o -o client
