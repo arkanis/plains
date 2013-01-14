@@ -1,12 +1,16 @@
 #pragma once
 
-#include "layer.h"
+#include <stdint.h>
 
 typedef struct {
+	uint64_t world_x, world_y;
+	uint64_t object_x, object_y;
+	uint64_t width, height;
+	
 	size_t layer_idx;
 	float scale_exp;
-	int64_t x, y;
-	uint64_t w, h;
+	//int64_t x, y;
+	//uint64_t w, h;
 	int shm_fd;
 	uint64_t req_seq;
 	uint8_t flags;

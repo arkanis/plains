@@ -35,7 +35,7 @@ void <?= $name ?>_destroy(<?= $name ?>_p node);
 // Special stuff
 void <?= $name ?>_collapse(<?= $name ?>_p node);
 
-typedef int (*<?= $name ?>_iterator_t)(<?= $name ?>_p node);
+typedef <?= $name ?>_p (*<?= $name ?>_iterator_t)(<?= $name ?>_p node);
 <?= $name ?>_p <?= $name ?>_iterate(<?= $name ?>_p node, <?= $name ?>_iterator_t func);
 
 <?php

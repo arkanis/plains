@@ -108,9 +108,9 @@ int ipc_server_broadcast(ipc_server_p server, msg_p msg){
 			continue;
 		}
 		
-		msg->seq = server->clients[client_idx].seq++;
+		msg->seq = server->clients[i].seq++;
 		size_t buffer_filled = msg_serialize(msg, buffer, MSG_MAX_SIZE);
-		msg_queue_end_enqueue(out, buffer, buffer_filled, msg->fd);
+		msg_queue_end_enqueue(out, buffer, buffer_filled, -1);
 	}
 	
 	return dropped_messages;
@@ -253,8 +253,10 @@ void ipc_server_cycle(ipc_server_p server, int timeout){
 					
 					ssize_t bytes_send = sendmsg(poll_fds[i+1].fd, &msghdr, 0);
 					if (bytes_send == -1) {
-						if (errno != EWOULDBLOCK)
+						if (errno != EWOULDBLOCK){
 							perror("sendmsg() failed");
+							exit(13);
+						}
 						break;
 					} else if (bytes_send != buffer_size) {
 						fprintf(stderr, "write() failed: only %zd bytes of %zu bytes written\n", bytes_send, buffer_size);

@@ -7,7 +7,6 @@
 #include "common.h"
 #include "math.h"
 #include "viewport.h"
-#include "draw_request_tree.h"
 
 
 layer_p layers;
@@ -42,28 +41,84 @@ void layers_unload(){
 	glDisable(GL_TEXTURE_RECTANGLE_ARB);
 }
 
-draw_request_tree_p layers_in_rect(int64_t x, int64_t y, uint64_t width, uint64_t height, float current_scale_exp){
+draw_request_tree_p layers_in_rect(int64_t screen_x, int64_t screen_y, uint64_t screen_width, uint64_t screen_height, float current_scale_exp){
 	draw_request_tree_p tree = draw_request_tree_new((draw_request_t){});
 	
 	for(size_t i = 0; i < layer_count; i++){
 		layer_p layer = &layers[i];
-		layer_scale_p ls = layers[i].current_scale;
 		
-		if ( !(layer->x < x + width && layer->x + layer->width >= x && layer->y < y + height && layer->y + layer->height >= y) )
+		inline int64_t min(int64_t a, int64_t b){ return a < b ? a : b; }
+		inline int64_t max(int64_t a, int64_t b){ return a > b ? a : b; }
+		
+		// Use signed ints for all values so C does not get funny (unsigned) ideas in any calculations
+		int64_t lx1 = layer->x, ly1 = layer->y, sx1 = screen_x, sy1 = screen_y;
+		int64_t lx2 = layer->x + layer->width, ly2 = layer->y + layer->height, sx2 = screen_x + screen_width, sy2 = screen_y + screen_height;
+		
+		printf("lx1 %ld, ly1 %ld, lx2 %ld, ly2 %ld\n", lx1, ly1, lx2, ly2);
+		printf("sx1 %ld, sy1 %ld, sx2 %ld, sy2 %ld\n", sx1, sy1, sx2, sy2);
+		int64_t rx1 = max(lx1, sx1), rx2 = min(lx2, sx2);
+		int64_t ry1 = max(ly1, sy1), ry2 = min(ly2, sy2);
+		printf("rx1 %ld, ry1 %ld, rx2 %ld, ry2 %ld\n", rx1, ry1, rx2, ry2);
+		int64_t wx = rx2 - rx1;
+		int64_t wy = ry2 - ry1;
+		
+		printf("wx %ld, wy %ld\n", wx, wy);
+		if (wx < 0 || wy < 0)
 			break;
 		
-		int64_t rx = (layer->x > x) ? layer->x : x;
-		int64_t ry = (layer->y > y) ? layer->y : y;
-		uint64_t rw = ((layer->x + layer->width > x + width) ? x + width : layer->x + layer->width) - rx;
-		uint64_t rh = ((layer->y + layer->height > y + height) ? y + height : layer->y + layer->height) - ry;
+		printf("world_x %ld, world_y %ld, object_x %ld, object_y %ld\n", rx1, ry1, rx1 - lx1, ry1 - ly1);
+		draw_request_tree_append(tree, (draw_request_t){
+			.world_x = rx1, .world_y = ry1,
+			.object_x = rx1 - lx1, .object_y = ry1 - ly1,
+			.width = wx,
+			.height = wy,
+			.scale_exp = (layer->current_scale) ? layer->current_scale->scale_index : current_scale_exp,
+			.shm_fd = -1, .req_seq = 0, .flags = 0
+		});
+		
+		/*
+		int64_t offset_x = layer->x - screen_x;
+		int64_t offset_y = layer->y - screen_y;
+		
+		if ( !( offset_x > -layer->width && offset_x < screen_width && offset_y > -layer->height && offset_y < screen_height ) )
+			break;
+		
 		
 		draw_request_tree_append(tree, (draw_request_t){
-			.x = rx, .y = ry, .w = rw, .h = rh,
+			.screen_x = max(offset_x, 0),  .screen_y = max(offset_y, 0),
+			.object_x = max(-offset_x, 0), .object_y = max(-offset_y, 0),
+			.width = min(layer->x + layer->width, screen_x + screen_width) - max(layer->x, screen_x),
+			.height = min(layer->y + layer->height, screen_y + screen_height) - max(layer->y, screen_y),
+			.scale_exp = (layer->current_scale) ? layer->current_scale->scale_index : current_scale_exp,
+			.shm_fd = -1, .req_seq = 0, .flags = 0
+		});
+		*/
+		/*
+		// Use signed ints for all values so C does not get funny (unsigned) ideas in any calculations
+		int64_t lx = layer->x, ly = layer->y, sx = screen_x, sy = screen_y;
+		int64_t lw = layer->width, lh = layer->height, sw = screen_width, sh = screen_height;
+		
+		if (lx > sx + sw || lx + lw < sx || ly > sy + sh || ly + lh < sy)
+			break;
+		
+		inline int64_t min(int64_t a, int64_t b){ return a < b ? a : b; }
+		inline int64_t max(int64_t a, int64_t b){ return a > b ? a : b; }
+		
+		int64_t wx = max(lx, sx), wy = max(ly, sy);
+		int64_t wx2 = min(lx+lw, sx+sw), wy2 = min(ly+lh, sy+sh);
+		
+		draw_request_tree_append(tree, (draw_request_t){
+			.screen_x = wx - sx, .screen_y = wy - sy,
+			.object_x = wx - lx, .object_y = wy - ly,
+			.width = wx2 - wx, .height = wy2 - wy,
 			.layer_idx = i,
 			.scale_exp = (layer->current_scale) ? layer->current_scale->scale_index : current_scale_exp,
 			.shm_fd = -1, .req_seq = 0, .flags = 0
 		});
+		*/
 	}
+	
+	return tree;
 }
 
 
@@ -138,6 +193,7 @@ void layer_scale_new(layer_p layer, scale_index_t scale_index, tile_table_p tile
 	}
 }
 
+/*
 void layer_scale_upload(layer_p layer, scale_index_t scale_index, uint64_t x, uint64_t x, uint64_t width, uint64_t height, const uint8_t *pixel_data, tile_table_p tile_table){
 	// Find the layer scale
 	layer_scale_p ls = layer->current_scale;
@@ -157,6 +213,7 @@ void layer_scale_upload(layer_p layer, scale_index_t scale_index, uint64_t x, ui
 	tile_table_alloc(tile_table, ls->tile_count, ls->tile_ids, ls);
 	tile_table_upload(tile_table, ls->tile_count, ls->tile_ids, ls->width, ls->height, pixel_data);
 }
+*/
 
 /*
 
@@ -181,13 +238,14 @@ void layer_destroy(size_t index){
 	// Not yet meaningfull
 }
 
-
+/*
 static void layer_scale_tile_id_to_offset(layer_scale_p layer_scale, tile_id_t id, tile_table_p tile_table, uint64_t *x, uint64_t *y){
 	uint64_t tiles_per_line = iceildiv(layer_scale->width, tile_table->tile_size);
 	*y = (id / tiles_per_line) * tile_table->tile_size;
 	*x = (id % tiles_per_line) * tile_table->tile_size;
 }
-
+*/
+/*
 void layers_draw(viewport_p viewport, tile_table_p tile_table, layer_draw_proc_t draw_proc){
 	// First allocate a vertex buffer for all tiles (not the perfect solution, we would actually need the count of displayed tiles)
 	glBindBuffer(GL_ARRAY_BUFFER, layers_vertex_buffer);
@@ -234,7 +292,7 @@ void layers_draw(viewport_p viewport, tile_table_p tile_table, layer_draw_proc_t
 			tile_table->tile_ages[ls->tile_ids[j]] = 0;
 		}
 	}
-	/*
+	
 	printf("vertex buffer:\n");
 	for(size_t i = 0; i < bo; i += 16){
 		printf("  %f,%f (%.0f,%.0f)  %f,%f (%.0f,%.0f)\n  %f,%f (%.0f,%.0f)  %f,%f (%.0f,%.0f)\n--\n",
@@ -244,7 +302,7 @@ void layers_draw(viewport_p viewport, tile_table_p tile_table, layer_draw_proc_t
 			buffer[i+12], buffer[i+13], buffer[i+14], buffer[i+15]
 		);
 	}
-	*/
+	
 	
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	
@@ -277,7 +335,9 @@ void layers_draw(viewport_p viewport, tile_table_p tile_table, layer_draw_proc_t
 	
 	tile_table_cycle(tile_table);
 }
+*/
 
+/*
 size_t layer_scale_tile_count_for_rect(layer_scale_p, tile_table_p tile_table, uint64_t x, uint64_t x, uint64_t width, uint64_t height){
 	// Calculate affected size (the size of the rect when x and y are aligned to their tile boundaries)
 	uint64_t affected_width = width + (x % tile_table->tile_size);
@@ -302,3 +362,4 @@ void layer_scale_tile_ids_for_rect(layer_scale_p, tile_table_p tile_table, uint6
 		}
 	}
 }
+*/

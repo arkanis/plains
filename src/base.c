@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,28 +25,10 @@
 #include "tile_table.h"
 #include "ipc_server.h"
 
-#include "image_window.c"
-#include "image_haruhi.c"
+//#include "image_window.c"
+//#include "image_haruhi.c"
 
 
-
-/*
-
-Resource actions:
-- load
-- new
-- destroy
-- unload
-
-Units:
-- World space: meter [m]
-
-Pipeline:
-- transform * local coords -> world coords
-- camera * world coords -> normalized device coords
-- viewport * normalized device coords -> screen coords
-
-*/
 
 // Viewport of the renderer. Data from the viewport is used by other components.
 viewport_p viewport;
@@ -236,10 +219,22 @@ void debug_draw(){
 //
 // Renderer
 //
+GLuint renderer_texture, renderer_prog, renderer_vertex_buffer;
+
 void renderer_resize(uint16_t window_width, uint16_t window_height){
 	SDL_SetVideoMode(window_width, window_height, 24, SDL_OPENGL | SDL_RESIZABLE);
 	glViewport(0, 0, window_width, window_height);
 	vp_screen_changed(viewport, window_width, window_height);
+	
+	// Free old buffer texture if there is one
+	if (renderer_texture != 0)
+		glDeleteTextures(1, &renderer_texture);
+	
+	// Create new one for the current resolution
+	glGenTextures(1, &renderer_texture);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, renderer_texture);
+	glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA, window_width, window_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
 }
 
 void renderer_load(uint16_t window_width, uint16_t window_height, const char *title){
@@ -247,16 +242,25 @@ void renderer_load(uint16_t window_width, uint16_t window_height, const char *ti
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_WM_SetCaption(title, NULL);
 	
-	// Initialize viewport structure
+	// Initialize viewport and with it OpenGL
+	renderer_texture = 0;
 	viewport = vp_new((vec2_t){window_width, window_height}, 2);
 	renderer_resize(window_width, window_height);
 	
-	// Enable alpha blending
+	// Enable alpha blending, rect textures, create vertex buffer and load shaders
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	
 	glEnable(GL_LINE_SMOOTH);
 	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	
+	glEnable(GL_TEXTURE_RECTANGLE_ARB);
+	
+	renderer_prog = load_and_link_program("tiles.vs", "tiles.ps");
+	assert(renderer_prog != 0);
+	
+	glGenBuffers(1, &renderer_vertex_buffer);
+	assert(renderer_vertex_buffer != 0);
 }
 
 void renderer_unload(){
@@ -269,80 +273,39 @@ void renderer_clear(){
 }
 
 void renderer_draw_response(draw_request_p req){
-	layer_p layer = &layers[req->layer_idx];
-	layer_scale_p ls = layer->current_scale;
+	// Not yet supported
+	if ( !(req->flags & DRAW_REQUEST_ANSWERED) )
+		assert(0);
 	
-	// Create a new layer scale if neccessary
-	if (ls == NULL || ls->scale_index != req->scale_exp) {
-		layer_scale_new(layer, req->scale_exp, tile_table, viewport);
-		ls = layer->current_scale;
-	}
+	// Map shared memory and upload the pixel data. When done unmap the
+	// shared memory and close the shared memory file (it will be deleted now).
+	size_t shm_size = req->width * req->height * 4;
+	void *pixel_data = mmap(NULL, shm_size, PROT_READ, MAP_SHARED, req->shm_fd, 0);
 	
-	// Upload pixel data if we have it
-	if (req->flags & DRAW_REQUEST_ANSWERED) {
-		// Map shared memory and upload the pixel data. When done unmap the
-		// shared memory and close the shared memory file (it will be deleted now).
-		size_t shm_size = req->w * req->h * 4;
-		void *pixel_data = mmap(NULL, shm_size, PROT_READ, MAP_SHARED, fd, 0);
-		//layer_scale_upload(layer, req->scale_exp, pixel_data, tile_table);
-		// TODO: implement proper upload function
-		layer_scale_upload(layer, req->scale_exp, req->x, req->y, req->w, req->h, pixel_data, tile_table);
-		munmap(pixel_data, shm_size);
-		close(fd);
-	}
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, renderer_texture);
+	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, 0, 0, req->width, req->height, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data);
+	//glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
 	
-	// Allocate vertex buffer object for tiles
-	size_t tile_count = tile_table_tile_count_for_size(tile_table, req->w, req->h);
-	glBindBuffer(GL_ARRAY_BUFFER, layers_vertex_buffer);
-	glBufferData(GL_ARRAY_BUFFER, tile_count * 16 * sizeof(float), NULL, GL_STREAM_DRAW);
+	munmap(pixel_data, shm_size);
+	close(req->shm_fd);
+	
+	
+	//layer_p layer = &layers[req->layer_idx];
+	//layer_scale_p ls = layer->current_scale;
+	
+	// Allocate vertex buffer object for drawing
+	glBindBuffer(GL_ARRAY_BUFFER, renderer_vertex_buffer);
+	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), NULL, GL_STREAM_DRAW);
 	float *buffer = glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
-	
-	
-	if (request->flags & DRAW_REQUEST_PLACEHOLDER) {
-		// Use placeholder tile, shared memory already freed
-	} else {
-	}
 	
 	// bo is short for buffer_offset
 	size_t bo = 0;
-	size_t t = tile_table->tile_size;
-	size_t tiles_to_draw = 0;
+	uint64_t ss_x = req->world_x, ss_y = req->world_y, w = req->width, h = req->height;
+	buffer[bo++] = ss_x + 0;  buffer[bo++] = ss_y + 0;  buffer[bo++] = 0;  buffer[bo++] = 0;
+	buffer[bo++] = ss_x + w;  buffer[bo++] = ss_y + 0;  buffer[bo++] = w;  buffer[bo++] = 0;
+	buffer[bo++] = ss_x + w;  buffer[bo++] = ss_y + h;  buffer[bo++] = w;  buffer[bo++] = h;
+	buffer[bo++] = ss_x + 0;  buffer[bo++] = ss_y + h;  buffer[bo++] = 0;  buffer[bo++] = h;
 	
-	for(size_t i = 0; i < layer_count; i++){
-		layer_p layer = &layers[i];
-		layer_scale_p ls = layers[i].current_scale;
-		// Ignore all layers that do not yet have a scale
-		if (ls == NULL)
-			continue;
-		float scale = vp_scale_for(viewport, ls->scale_index);
-		
-		// world space tile size (the smaller the scale the larger a tile becomes)
-		size_t ws_t = t / scale;
-		
-		for(size_t j = 0; j < ls->tile_count; j++){
-			uint64_t x, y;
-			layer_scale_tile_id_to_offset(ls, j, tile_table, &x, &y);
-			float ws_x = x / scale, ws_y = y / scale;
-			
-			uint32_t u, v;
-			tile_table_id_to_offset(tile_table, ls->tile_ids[j], &u, &v);
-			size_t w, h;
-			w = (ls->width - x > t) ? t : ls->width - x;
-			h = (ls->height - y > t) ? t : ls->height - y;
-			float ws_w = w / scale, ws_h = h / scale;
-			
-			// Unfortunately we need all this casting stuff otherwise C will only
-			// use unsigned values and break all negative coordinates.
-			buffer[bo++] = layer->x + ws_x +    0;  buffer[bo++] = layer->y + ws_y +    0;  buffer[bo++] = u + (float)0;  buffer[bo++] = v + (float)0;
-			buffer[bo++] = layer->x + ws_x + ws_w;  buffer[bo++] = layer->y + ws_y +    0;  buffer[bo++] = u + (float)w;  buffer[bo++] = v + (float)0;
-			buffer[bo++] = layer->x + ws_x + ws_w;  buffer[bo++] = layer->y + ws_y + ws_h;  buffer[bo++] = u + (float)w;  buffer[bo++] = v + (float)h;
-			buffer[bo++] = layer->x + ws_x +    0;  buffer[bo++] = layer->y + ws_y + ws_h;  buffer[bo++] = u + (float)0;  buffer[bo++] = v + (float)h;
-			
-			tiles_to_draw++;
-			// Reset the tile age since we'll use it in this draw operation
-			tile_table->tile_ages[ls->tile_ids[j]] = 0;
-		}
-	}
 	/*
 	printf("vertex buffer:\n");
 	for(size_t i = 0; i < bo; i += 16){
@@ -358,38 +321,38 @@ void renderer_draw_response(draw_request_p req){
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	
 	
-	glUseProgram(layer_prog);
+	glUseProgram(renderer_prog);
 	
-	GLint pos_tex_attrib = glGetAttribLocation(layer_prog, "pos_and_tex");
+	GLint pos_tex_attrib = glGetAttribLocation(renderer_prog, "pos_and_tex");
 	assert(pos_tex_attrib != -1);
 	glEnableVertexAttribArray(pos_tex_attrib);
 	glVertexAttribPointer(pos_tex_attrib, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 4, 0);
 	
-	GLint world_to_norm_uni = glGetUniformLocation(layer_prog, "world_to_norm");
+	GLint world_to_norm_uni = glGetUniformLocation(renderer_prog, "world_to_norm");
 	assert(world_to_norm_uni != -1);
 	glUniformMatrix3fv(world_to_norm_uni, 1, GL_FALSE, viewport->world_to_normal);
 	
 	glActiveTexture(GL_TEXTURE0);
-	GLint tex_attrib = glGetUniformLocation(layer_prog, "tex");
+	GLint tex_attrib = glGetUniformLocation(renderer_prog, "tex");
 	assert(tex_attrib != -1);
 	glUniform1i(tex_attrib, 0);
 	
-	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, tile_table->texture);
+	//glBindTexture(GL_TEXTURE_RECTANGLE_ARB, renderer_texture);
 	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glDrawArrays(GL_QUADS, 0, tiles_to_draw * 4);
+	glDrawArrays(GL_QUADS, 0, 4);
 	
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glUseProgram(0);
 	
-	tile_table_cycle(tile_table);
+	//tile_table_cycle(tile_table);
 }
 
 void render_finish_draw(){
 	cursor_draw();
-	debug_draw();
+	//debug_draw();
 	
 	SDL_GL_SwapBuffers();
 }
@@ -405,9 +368,10 @@ int main(int argc, char **argv){
 	cursor_load();
 	layers_load();
 	
-	tile_table = tile_table_new(2048, 2048, 128);
+	//tile_table = tile_table_new(2048, 2048, 128);
 	
 	
+	/*
 	layer_new(0, 0, 0, image_haruhi.width * 2, image_haruhi.height * 2, NULL);
 	layer_scale_new(&layers[0], -1, tile_table, viewport);
 	layer_scale_upload(&layers[0], -1, image_haruhi.pixel_data, tile_table);
@@ -419,6 +383,7 @@ int main(int argc, char **argv){
 	layer_new(0, -500, 0, image_window.width, image_window.height, NULL);
 	layer_scale_new(&layers[2], 0, tile_table, viewport);
 	layer_scale_upload(&layers[2], 0, image_window.pixel_data, tile_table);
+	*/
 	/*
 	layer_new(-700, -500, 0, image_haruhi.width, image_haruhi.height, NULL);
 	layer_scale_new(&layers[3], 0, tile_table, viewport);
@@ -429,10 +394,10 @@ int main(int argc, char **argv){
 	
 	ipc_server_p server = ipc_server_new("server.socket", 3, 20);
 	msg_t msg;
-	draw_request_tree_p draw_requests, retained_draw_requests;
+	draw_request_tree_p draw_requests = NULL, retained_draw_requests = NULL;
 	
 	SDL_Event e;
-	bool quit = false, viewport_grabbed = false, trigger_redraw = false;
+	bool quit = false, viewport_grabbed = false, trigger_redraw = true;
 	
 	while (!quit) {
 		ipc_server_cycle(server, 10);
@@ -476,18 +441,22 @@ int main(int argc, char **argv){
 						case SDLK_LEFT:
 							viewport->pos.x -= 1;
 							vp_changed(viewport);
+							trigger_redraw = true;
 							break;
 						case SDLK_RIGHT:
 							viewport->pos.x += 1;
 							vp_changed(viewport);
+							trigger_redraw = true;
 							break;
 						case SDLK_UP:
 							viewport->pos.y += 1;
 							vp_changed(viewport);
+							trigger_redraw = true;
 							break;
 						case SDLK_DOWN:
 							viewport->pos.y -= 1;
 							vp_changed(viewport);
+							trigger_redraw = true;
 							break;
 						default:
 							ipc_server_broadcast(server, msg_keyup(&msg, e.key.keysym.sym, e.key.keysym.mod));
@@ -511,6 +480,7 @@ int main(int argc, char **argv){
 						viewport->pos.x += -viewport->screen_to_world[0] * e.motion.xrel;
 						viewport->pos.y += -viewport->screen_to_world[4] * e.motion.yrel;
 						vp_changed(viewport);
+						trigger_redraw = true;
 					} else {
 						ipc_server_broadcast(server, msg_mouse_motion(&msg, e.motion.state, e.motion.x, e.motion.y));
 					}
@@ -554,6 +524,7 @@ int main(int argc, char **argv){
 								};
 							}
 							vp_changed(viewport);
+							trigger_redraw = true;
 							break;
 						case SDL_BUTTON_WHEELDOWN:
 							viewport->scale_exp += 1;
@@ -566,6 +537,7 @@ int main(int argc, char **argv){
 								};
 							}
 							vp_changed(viewport);
+							trigger_redraw = true;
 							break;
 						default:
 							ipc_server_broadcast(server, msg_mouse_button(&msg, e.button.type, e.button.which, e.button.button, e.button.state, e.button.x, e.button.y));
@@ -576,12 +548,35 @@ int main(int argc, char **argv){
 		}
 		
 		
+		void check_for_empty_draw_tree_and_finish_rendering(draw_request_tree_p* draw_requests){
+			size_t pending_draw_requests = 0;
+			draw_request_tree_p count_iterator(draw_request_tree_p node){
+				if ( !(node->value.flags & DRAW_REQUEST_DONE) )
+					pending_draw_requests++;
+				return NULL;
+			}
+			draw_request_tree_iterate(*draw_requests, count_iterator);
+			
+			if (pending_draw_requests == 0){
+				render_finish_draw();
+				
+				draw_request_tree_p free_iterator(draw_request_tree_p node){
+					close(node->value.shm_fd);
+					return NULL;
+				}
+				draw_request_tree_iterate(*draw_requests, free_iterator);
+				
+				draw_request_tree_destroy(*draw_requests);
+				*draw_requests = NULL;
+			}
+		}
+		
 		if (trigger_redraw){
 			// If we have any retained draw requests left we need to clean them up before starting new stuff
 			if (retained_draw_requests) {
 				// TODO: Merge retained draw request buffers into any current draw request buffers
 				// Free retained draw requests (shared memory files and tree)
-				int free_iterator(draw_request_tree_p node){
+				draw_request_tree_p free_iterator(draw_request_tree_p node){
 					close(node->value.shm_fd);
 					return NULL;
 				}
@@ -599,9 +594,9 @@ int main(int argc, char **argv){
 			vp_vis_world_rect(viewport, &x, &y, &w, &h);
 			draw_requests = layers_in_rect(x, y, w, h, viewport->scale_exp);
 			
-			int send_iterator(draw_request_tree_p node){
+			draw_request_tree_p send_iterator(draw_request_tree_p node){
 				// Create a shared memory file and delete it directly afterwards. We just
-				// want the file descriptor and as long as it is open the file data is not
+				// want the file descriptor. As long as it is open the file data is not
 				// deleted.
 				const char *shm_name = "/plains_layer";
 				int fd = shm_open(shm_name, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
@@ -613,23 +608,31 @@ int main(int argc, char **argv){
 				if ( shm_unlink(shm_name) == -1 )
 					perror("shm_unlink() failed");
 				
-				size_t shm_size = node->value.w * node->value.h * 4;
+				node->value.shm_fd = fd;
+				size_t shm_size = node->value.width * node->value.height * 4;
 				if ( ftruncate(fd, shm_size) == -1 )
 					perror("ftruncate() on shared memory failed");
 				
 				// Send fd to client to render the stuff into. Then wait for the status response.
 				msg_t msg;
+				draw_request_p req = &node->value;
+				layer_p layer = &layers[req->layer_idx];
+				
 				node->value.req_seq = ipc_server_send_with_fd(server, layer->client_idx,
-					msg_draw(&msg, 0, layer->private, 0, 0, 0, scale->width, scale->height, scale->scale_index, 0.0),
+					msg_draw(&msg,
+						req->layer_idx, layer->private,
+						req->object_x, req->object_y, 0, req->width, req->height, req->scale_exp, 0.0),
 					fd);
 				
 				return NULL;
 			}
-			draw_request_tree_iterate(send_iterator);
+			draw_request_tree_iterate(draw_requests, send_iterator);
 			
 			// Clear back buffer and draw grid
 			renderer_clear();
 			grid_draw();
+			
+			check_for_empty_draw_tree_and_finish_rendering(&draw_requests);
 			
 			trigger_redraw = false;
 		}
@@ -641,7 +644,8 @@ int main(int argc, char **argv){
 			
 			size_t buffer_size = 0;
 			void *buffer = NULL;
-			while( (buffer = msg_queue_start_dequeue(&client->in, &buffer_size)) != NULL ){
+			int buffer_fd = -1;
+			while( (buffer = msg_queue_start_dequeue(&client->in, &buffer_size, &buffer_fd)) != NULL ){
 				printf("client %zu: ", i);
 				
 				msg_deserialize(&msg, buffer, buffer_size);
@@ -654,8 +658,8 @@ int main(int argc, char **argv){
 					case MSG_STATUS: {
 						// Search for draw request with a matching req_seq
 						// TODO: Would be more efficient to keep a list of expected response seq in the client structure
-						int req_search_iterator(draw_request_tree_p node){
-							if (node->req_seq == msg->status.seq)
+						draw_request_tree_p req_search_iterator(draw_request_tree_p node){
+							if (node->value.req_seq == msg.status.seq)
 								return node;
 							return NULL;
 						}
@@ -664,15 +668,15 @@ int main(int argc, char **argv){
 						if (req_node == NULL)
 							break;
 						
-						if (msg->status.status == 2) {
+						if (msg.status.status == 2) {
 							// Draw request failed, draw nothing, free shared memory and mark
 							// request as done (but not answered). There is no need to keep the
 							// shared memory buffer around that has no useful contents.
 							close(req_node->value.shm_fd);
 							req_node->value.shm_fd = -1;
 							req_node->value.flags |= DRAW_REQUEST_DONE;
-						} else if (msg->status.status == 0 || msg->status.status == 1) {
-							if (msg->status.status == 1) {
+						} else if (msg.status.status == 0 || msg.status.status == 1) {
+							if (msg.status.status == 1) {
 								// Draw request failed but we should draw a placeholder. Free
 								// the shared memory since it contains nothing useful.
 								req_node->value.flags |= DRAW_REQUEST_PLACEHOLDER;
@@ -700,9 +704,10 @@ int main(int argc, char **argv){
 							
 							// We're not blocked, get the pixels drawn
 							renderer_draw_response(&req_node->value);
+							req_node->value.flags |= DRAW_REQUEST_DONE;
 							
 							// Draw any dependent requests that are now unblocked
-							int draw_iterator(draw_request_tree_p node){
+							draw_request_tree_p draw_iterator(draw_request_tree_p node){
 								// Theoretically we could skip the DONE check since child requests
 								// can not be done before all parents (dependencies)... but well, just to be sure...
 								if ( !(node->value.flags & DRAW_REQUEST_DONE) && ((node->value.flags & DRAW_REQUEST_ANSWERED) || (node->value.flags & DRAW_REQUEST_PLACEHOLDER)) )
@@ -712,28 +717,9 @@ int main(int argc, char **argv){
 							draw_request_tree_iterate(req_node, draw_iterator);
 							
 							// Free the draw request tree if all requests are served
-							size_t pending_draw_requests = 0;
-							int count_iterator(draw_request_tree_p node){
-								if ( !(node->value.flags & DRAW_REQUEST_DONE) )
-									pending_draw_requests++;
-								return NULL;
-							}
-							draw_request_tree_iterate(draw_requests, count_iterator);
-							
-							if (pending_draw_requests == 0){
-								render_finish_draw();
-								
-								int free_iterator(draw_request_tree_p node){
-									close(node->value.shm_fd);
-									return NULL;
-								}
-								draw_request_tree_iterate(draw_requests, free_iterator);
-								
-								draw_request_tree_destroy(draw_requests);
-							}
-
+							check_for_empty_draw_tree_and_finish_rendering(&draw_requests);
 						} else {
-							fprintf("unknown draw response status: %u\n", msg->status.status);
+							fprintf(stderr, "unknown draw response status: %u\n", msg.status.status);
 							break;
 						}
 						
@@ -747,7 +733,7 @@ int main(int argc, char **argv){
 	
 	// Cleanup time
 	ipc_server_destroy(server);
-	tile_table_destroy(tile_table);
+	//tile_table_destroy(tile_table);
 	
 	debug_unload();
 	layers_unload();

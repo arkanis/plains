@@ -121,7 +121,7 @@ bool gl_ext_present(const char *ext_name){
 	GLint ext_count;
 	glGetIntegerv(GL_NUM_EXTENSIONS, &ext_count);
 	for(size_t i = 0; i < ext_count; i++){
-		if ( strcmp(glGetStringi(GL_EXTENSIONS, i), ext_name) == 0 )
+		if ( strcmp((const char*)glGetStringi(GL_EXTENSIONS, i), ext_name) == 0 )
 			return true;
 	}
 	return false;

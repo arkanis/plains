@@ -5,4 +5,5 @@ varying vec2 tex_coords;
 
 void main(){
 	gl_FragColor = texture2DRect(tex, tex_coords);
+	gl_FragColor.ba = vec2(1, 1);
 }
