@@ -62,4 +62,4 @@ test_tree: test_tree.c uint64_tree.o
 
 
 clean:
-	rm -f *.o base core test_server test_client msg.h msg.c uint64_tree.c uint64_tree.h draw_request_tree.c draw_request_tree.h
+	rm -f *.o base core test_server test_client msg.h msg.c uint64_tree.c uint64_tree.h draw_request_tree.c draw_request_tree.h image_viewer
