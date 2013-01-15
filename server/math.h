@@ -191,11 +191,11 @@ static inline irect_t irect_intersection(irect_t a, irect_t b){
 	
 	// Calculate points of intersection rect
 	ivec2_t i1 = { imax(a1.x, b1.x), imax(a1.y, b1.y) };
-	ivec2_t i2 = { imin(a2.x, b2.x), imin(a1.y, b1.y) };
+	ivec2_t i2 = { imin(a2.x, b2.x), imin(a2.y, b2.y) };
 	
-	irect_t intersection = { i1.x, i1.y, i2.x - i1.x, i2.y - i1.y };
-	if (intersection.w < 0) intersection.w = 0;
-	if (intersection.h < 0) intersection.h = 0;
+	int64_t w = i2.x - i1.x, h = i2.y - i1.y;
+	if (w < 0) w = 0;
+	if (h < 0) h = 0;
 	
-	return intersection;
+	return (irect_t){ i1.x, i1.y, w, h };
 }
