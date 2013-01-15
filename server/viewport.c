@@ -53,7 +53,7 @@ void vp_changed(viewport_p vp){
 	sx = 2.0 / vp->world_size.x;
 	sy = -2.0 / vp->world_size.y;
 	tx = -(vp->pos.x + vp->subpixel_pos.x) * (2.0 / vp->world_size.x);
-	ty = -(vp->pos.y + vp->subpixel_pos.y) * (2.0 / vp->world_size.y);
+	ty = (vp->pos.y + vp->subpixel_pos.y) * (2.0 / vp->world_size.y);
 	m3_transpose(vp->world_to_normal, (mat3_t){
 		sx, 0, tx,
 		0, sy, ty,
@@ -64,7 +64,7 @@ void vp_changed(viewport_p vp){
 	sx = vp->screen_size.x / vp->world_size.x;
 	sy = vp->screen_size.y / vp->world_size.y;
 	tx = -(vp->pos.x + vp->subpixel_pos.x) * sx + 0.5 * vp->screen_size.x;
-	ty = -(vp->pos.y + vp->subpixel_pos.y) * sy + 0.5 * vp->screen_size.y;
+	ty = (vp->pos.y + vp->subpixel_pos.y) * sy + 0.5 * vp->screen_size.y;
 	m3_transpose(vp->world_to_screen, (mat3_t){
 		sx, 0, tx,
 		0, sy, ty,

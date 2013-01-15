@@ -6,9 +6,9 @@
 #include "renderer.h"
 
 int main(int argc, char **argv){
-	renderer_p renderer = renderer_new(640, 480, "Plains");
+	renderer_p renderer = renderer_new(800, 800, "Plains");
 	object_tree_p world = object_tree_new((object_t){});
-	viewport_p viewport = vp_new(640, 480, 2.0, 0.0);
+	viewport_p viewport = vp_new(800, 800, 2.0, 0.0);
 	
 	object_tree_append(world, (object_t){0,   0,   0, 100, 100});
 	object_tree_p objA = object_tree_append(world, (object_t){150, 0,   0, 50, 100});
@@ -37,22 +37,22 @@ int main(int argc, char **argv){
 				case SDL_KEYUP:
 					switch(e.key.keysym.sym){
 						case SDLK_LEFT:
-							viewport->pos.x -= 1;
+							viewport->pos.x -= 25;
 							vp_changed(viewport);
 							redraw = true;
 							break;
 						case SDLK_RIGHT:
-							viewport->pos.x += 1;
+							viewport->pos.x += 25;
 							vp_changed(viewport);
 							redraw = true;
 							break;
 						case SDLK_UP:
-							viewport->pos.y += 1;
+							viewport->pos.y += 25;
 							vp_changed(viewport);
 							redraw = true;
 							break;
 						case SDLK_DOWN:
-							viewport->pos.y -= 1;
+							viewport->pos.y -= 25;
 							vp_changed(viewport);
 							redraw = true;
 							break;
@@ -68,7 +68,7 @@ int main(int argc, char **argv){
 						// with deltas here the offsets are not necessary (in fact would destroy the result).
 						//printf("scale %f, %f, rel %d, %d\n", viewport->screen_to_world[0], viewport->screen_to_world[4], e.motion.xrel, e.motion.yrel);
 						viewport->pos.x += -viewport->screen_to_world[0] * e.motion.xrel;
-						viewport->pos.y += -viewport->screen_to_world[4] * e.motion.yrel;
+						viewport->pos.y += viewport->screen_to_world[4] * e.motion.yrel;
 						vp_changed(viewport);
 						redraw = true;
 					}
@@ -138,15 +138,24 @@ int main(int argc, char **argv){
 			//draw_request_tree_p req_tree = draw_request_tree_new((draw_request_t){});
 			
 			renderer_clear(renderer);
+			irect_t screen_rect = vp_vis_world_rect(viewport);
+			screen_rect.x += 100; screen_rect.y += 100;
+			screen_rect.w -= 200; screen_rect.h -= 200;
+			
 			object_tree_p draw_iterator(object_tree_p node){
-				draw_request_t req = (draw_request_t){ .object = &node->value, .color = (color_t){0, 0, 1, 0.5} };
-				req.x = node->value.x;
-				req.y = node->value.y;
+				// Calculate non nested world coords
+				int64_t x = node->value.x, y = node->value.y;
 				for(object_tree_p n = node->parent; n; n = n->parent){
-					req.x += n->value.x;
-					req.y += n->value.y;
+					x += n->value.x;
+					y += n->value.y;
 				}
 				
+				// Check if it is visible
+				irect_t i = irect_intersection((irect_t){x, y, node->value.width, node->value.height}, screen_rect);
+				if( i.w == 0 || i.h == 0 )
+					return NULL;
+				
+				draw_request_t req = (draw_request_t){ .x = x, .y = y, .object = &node->value, .color = (color_t){0, 0, 1, 0.5} };
 				renderer_draw_response(renderer, viewport, &req);
 				return NULL;
 			}
