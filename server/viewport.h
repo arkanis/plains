@@ -32,9 +32,9 @@ typedef struct {
 } viewport_t, *viewport_p;
 
 
-viewport_p vp_new(ivec2_t world_default_size, float scale_base, float scale_exp);
+viewport_p vp_new(uint16_t world_default_width, uint16_t world_default_height, float scale_base, float scale_exp);
 void vp_destroy(viewport_p vp);
 void vp_changed(viewport_p vp);
-void vp_screen_changed(viewport_p vp, ivec2_t new_screen_size);
+void vp_screen_changed(viewport_p vp, uint16_t width, uint16_t height);
 float vp_scale_for(viewport_p vp, float exp);
 irect_t vp_vis_world_rect(viewport_p vp);

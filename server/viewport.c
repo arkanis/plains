@@ -3,17 +3,18 @@
 
 #include "viewport.h"
 
-viewport_p vp_new(ivec2_t world_default_size, float scale_base, float scale_exp){
+viewport_p vp_new(uint16_t world_default_width, uint16_t world_default_height, float scale_base, float scale_exp){
 	viewport_p vp = malloc(sizeof(viewport_t));
 	
 	vp->pos = (ivec2_t){0, 0};
 	vp->subpixel_pos = (vec2_t){0, 0};
-	vp->world_default_size = world_default_size;
 	
 	vp->scale_base = scale_base;
 	vp->scale_exp = scale_exp;
 	
 	vp->screen_space_objects = object_tree_new((object_t){});
+	
+	vp_screen_changed(vp, world_default_width, world_default_height);
 	return vp;
 }
 
@@ -71,8 +72,8 @@ void vp_changed(viewport_p vp){
 	});
 }
 
-void vp_screen_changed(viewport_p vp, ivec2_t new_screen_size){
-	vp->screen_size = new_screen_size;
+void vp_screen_changed(viewport_p vp, uint16_t width, uint16_t height){
+	vp->screen_size = (ivec2_t){ width, height };
 	
 	// Adjust the world size to the new screen size. When the user resizes the viewport the size
 	// of things stays the same but the user sees more. This is a more fitting behaviour for a window.

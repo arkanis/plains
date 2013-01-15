@@ -89,7 +89,7 @@ void renderer_draw_response(renderer_p renderer, viewport_p viewport, draw_reque
 	
 	// bo is short for buffer_offset
 	size_t bo = 0;
-	uint64_t x = req->object->x, y = req->object->y, w = req->object->width, h = req->object->height;
+	uint64_t x = req->x, y = req->y, w = req->object->width, h = req->object->height;
 	buffer[bo++] = x + 0;  buffer[bo++] = y + 0;  buffer[bo++] = 0;  buffer[bo++] = 0;
 	buffer[bo++] = x + w;  buffer[bo++] = y + 0;  buffer[bo++] = w;  buffer[bo++] = 0;
 	buffer[bo++] = x + w;  buffer[bo++] = y + h;  buffer[bo++] = w;  buffer[bo++] = h;
