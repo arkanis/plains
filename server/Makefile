@@ -1,0 +1,30 @@
+GCC_FLAGS = -std=gnu99 -g -Wall
+PHP_OPTS = -d short_open_tag=on
+
+# Main programs
+SERVER_OBJS = viewport.o renderer.o object_tree.o math.o
+server: server.c $(SERVER_OBJS)
+	gcc $(GCC_FLAGS) server.c $(SERVER_OBJS) -lSDL -lGL -lm -o server
+
+# Parts
+renderer.o: renderer.c renderer.h draw_request.h viewport.o
+	gcc -c $(GCC_FLAGS) renderer.c
+
+viewport.o: viewport.c viewport.h math.h object_tree.h
+	gcc -c $(GCC_FLAGS) viewport.c
+
+# Collections
+object_tree.c object_tree.h object_tree.o: tree.php
+	php $(PHP_OPTS) tree.php object_t object_tree "\"object.h\""
+	gcc -c $(GCC_FLAGS) object_tree.c
+
+draw_request_tree.c draw_request_tree.h draw_request_tree.o: tree.php
+	php $(PHP_OPTS) tree.php draw_request_t draw_request_tree "\"draw_request.h\""
+	gcc -c $(GCC_FLAGS) draw_request_tree.c
+
+# Base libraries
+math.o: math.c math.h
+	gcc -c $(GCC_FLAGS) math.c
+
+clean:
+	rm -f *.o server object_tree.c object_tree.h draw_request_tree.c draw_request_tree.h
