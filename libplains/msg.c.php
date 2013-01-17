@@ -42,11 +42,11 @@ void plains_msg_print(plains_msg_p msg){
 	}
 }
 
-int plains_msg_serialize(plains_msg_p msg, void* msg_buffer, size_t* msg_buffer_size, int* fd_buffer, size_t* fd_buffer_size){
+int plains_msg_serialize(plains_msg_p msg, void* msg_buffer, size_t* msg_buffer_size, int* fd_buffer, size_t* fd_buffer_length){
 	void* mp = msg_buffer;
 	int* fp = fd_buffer;
 	void* msg_buffer_end = msg_buffer + *msg_buffer_size;
-	int* fd_buffer_end = fd_buffer + *fd_buffer_size;
+	int* fd_buffer_end = fd_buffer + *fd_buffer_length;
 	
 <?	foreach($header as $name => $type): ?>
 	if (mp + sizeof(<?= $type ?>) > msg_buffer_end) goto msg_buffer_overflow;
@@ -98,8 +98,8 @@ int plains_msg_serialize(plains_msg_p msg, void* msg_buffer, size_t* msg_buffer_
 	}
 	
 	*msg_buffer_size = mp - msg_buffer;
-	*fd_buffer_size = fp - fd_buffer;
-	return 1;
+	*fd_buffer_length = fp - fd_buffer;
+	return 0;
 	
 	msg_buffer_overflow:
 		fprintf(stderr, "plains_msg_serialize(): message buffer overflow\n");
@@ -111,15 +111,15 @@ int plains_msg_serialize(plains_msg_p msg, void* msg_buffer, size_t* msg_buffer_
 	
 	ser_error:
 		*msg_buffer_size = mp - msg_buffer;
-		*fd_buffer_size = fp - fd_buffer;
-	return 0;
+		*fd_buffer_length = fp - fd_buffer;
+	return -1;
 }
 
-int plains_msg_deserialize(plains_msg_p msg, void* msg_buffer, size_t msg_buffer_size, int* fd_buffer, size_t fd_buffer_size){
+int plains_msg_deserialize(plains_msg_p msg, void* msg_buffer, size_t msg_buffer_size, int* fd_buffer, size_t fd_buffer_length){
 	void* mp = msg_buffer;
 	int* fp = fd_buffer;
 	void* msg_buffer_end = msg_buffer + msg_buffer_size;
-	int* fd_buffer_end = fd_buffer + fd_buffer_size;
+	int* fd_buffer_end = fd_buffer + fd_buffer_length;
 	
 <?	foreach($header as $name => $type): ?>
 	if (mp + sizeof(<?= $type ?>) > msg_buffer_end) goto msg_buffer_overrun;
@@ -166,16 +166,16 @@ int plains_msg_deserialize(plains_msg_p msg, void* msg_buffer, size_t msg_buffer
 <?	endforeach ?>
 		default:
 			fprintf(stderr, "plains_msg_deserialize(): unknown message type %hu\n", msg->type);
-			return 0;
+			return -1;
 	}
 	
 	return 1;
 	
 	msg_buffer_overrun:
 	fprintf(stderr, "plains_msg_deserialize(): message buffer overrun\n");
-	return 0;
+	return -1;
 	
 	fd_buffer_overrun:
 	fprintf(stderr, "plains_msg_deserialize(): file descriptor buffer overrun\n");
-	return 0;
+	return -1;
 }

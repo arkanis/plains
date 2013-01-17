@@ -11,5 +11,9 @@ msg.o: msg.c msg.h
 	gcc -c $(GCC_FLAGS) msg.c
 
 
+libplains.o: libplains.c libplains.h msg.o
+	gcc -c $(GCC_FLAGS) libplains.c
+
+
 clean:
 	rm -f *.o msg.h msg.c

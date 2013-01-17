@@ -33,7 +33,6 @@ ob_start();
 
 #include <stdint.h>
 #include <stddef.h>
-//#include <sys/types.h>
 #include <string.h>
 
 typedef int plains_fd_t;
@@ -69,8 +68,8 @@ typedef struct {
 extern const char* plains_msg_types[];
 
 void plains_msg_print(plains_msg_p msg);
-int plains_msg_serialize(plains_msg_p msg, void* msg_buffer, size_t* msg_buffer_size, int* fd_buffer, size_t* fd_buffer_size);
-int plains_msg_deserialize(plains_msg_p msg, void* msg_buffer, size_t msg_buffer_size, int* fd_buffer, size_t fd_buffer_size);
+int plains_msg_serialize(plains_msg_p msg, void* msg_buffer, size_t* msg_buffer_size, int* fd_buffer, size_t* fd_buffer_length);
+int plains_msg_deserialize(plains_msg_p msg, void* msg_buffer, size_t msg_buffer_size, int* fd_buffer, size_t fd_buffer_length);
 
 
 <?	foreach($messages as $message_name => $fields): ?>
