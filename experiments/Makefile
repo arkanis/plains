@@ -16,6 +16,8 @@ x-sample: x-sample.c
 image_loader: image_loader.c
 	gcc -std=gnu99 image_loader.c -o image_loader -lm
 
+socket_buffer: socket_buffer.c
+	gcc socket_buffer.c -o socket_buffer
 
 clean:
-	rm -f basic-xgl x-client xcb-client x-sample image_loader
+	rm -f basic-xgl x-client xcb-client x-sample image_loader socket_buffer
