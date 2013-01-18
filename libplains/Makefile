@@ -1,6 +1,11 @@
 GCC_FLAGS = -std=gnu99 -g -Wall
 PHP_OPTS = -d short_open_tag=on
 
+
+libplains.o: libplains.c libplains.h msg.o net.o
+	gcc -c $(GCC_FLAGS) libplains.c
+
+
 msg.h: msg.h.php protocol.php
 	php $(PHP_OPTS) msg.h.php > msg.h
 
@@ -10,9 +15,8 @@ msg.c: msg.c.php msg.h
 msg.o: msg.c msg.h
 	gcc -c $(GCC_FLAGS) msg.c
 
-
-libplains.o: libplains.c libplains.h msg.o
-	gcc -c $(GCC_FLAGS) libplains.c
+net.o: net.c net.h msg.h
+	gcc -c $(GCC_FLAGS) net.c
 
 
 clean:
