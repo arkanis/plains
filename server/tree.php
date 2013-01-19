@@ -38,6 +38,9 @@ void <?= $name ?>_collapse(<?= $name ?>_p node);
 typedef <?= $name ?>_p (*<?= $name ?>_iterator_t)(<?= $name ?>_p node);
 <?= $name ?>_p <?= $name ?>_iterate(<?= $name ?>_p node, <?= $name ?>_iterator_t func);
 
+typedef uint8_t (*<?= $name ?>_handler_t)(<?= $name ?>_p node);
+void <?= $name ?>_delete(<?= $name ?>_p node, <?= $name ?>_handler_t func);
+
 <?php
 file_put_contents("$name.h", ob_get_clean());
 ob_start();
@@ -109,16 +112,16 @@ void <?= $name ?>_destroy(<?= $name ?>_p node){
 <?= $type ?> <?= $name ?>_remove(<?= $name ?>_p node){
 	<?= $type ?> value = node->value;
 	
-	if (node->prev == NULL){
-		if (node->next)
-			node->next->prev = node->prev;
+	if (node->prev) {
+		node->prev->next = node->next;
+	} else {
 		if (node->parent)
 			node->parent->first = node->next;
 	}
-		
-	if (node->next == NULL){
-		if (node->prev)
-			node->prev->next = node->next;
+	
+	if (node->next) {
+		node->next->prev = node->prev;
+	} else {
 		if (node->parent)
 			node->parent->last = node->prev;
 	}
@@ -193,6 +196,22 @@ void <?= $name ?>_collapse(<?= $name ?>_p node){
 	}
 	
 	return result;
+}
+
+void <?= $name ?>_delete(<?= $name ?>_p node, <?= $name ?>_handler_t func){
+	<?= $name ?>_p next = NULL;
+	
+	for(<?= $name ?>_p child = node->first; child; child = next){
+		next = child->next;
+		
+		uint8_t result = func(child);
+		if (result == 1){
+			<?= $name ?>_remove(child);
+			continue;
+		}
+		
+		<?= $name ?>_delete(child, func);
+	}
 }
 
 <?php
