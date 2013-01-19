@@ -31,7 +31,7 @@ void ipc_server_destroy(ipc_server_p server);
 int ipc_server_send(ipc_client_p client, plains_msg_p msg);
 int ipc_server_broadcast(ipc_server_p server, plains_msg_p msg);
 
-typedef void (*ipc_server_connect_handler_t)(ipc_client_p client);
-typedef void (*ipc_server_recv_handler_t)(ipc_client_p client, plains_msg_p msg);
-typedef void (*ipc_server_disconnect_handler_t)(ipc_client_p client);
+typedef void (*ipc_server_connect_handler_t)(size_t client_idx, ipc_client_p client);
+typedef void (*ipc_server_recv_handler_t)(size_t client_idx, ipc_client_p client, plains_msg_p msg);
+typedef void (*ipc_server_disconnect_handler_t)(size_t client_idx, ipc_client_p client);
 int ipc_server_cycle(ipc_server_p server, int timeout, ipc_server_recv_handler_t recv_handler, ipc_server_connect_handler_t connect_handler, ipc_server_disconnect_handler_t disconnect_handler);

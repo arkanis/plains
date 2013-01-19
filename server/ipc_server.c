@@ -51,6 +51,7 @@ ipc_server_p ipc_server_new(const char *path, int backlog){
 	
 	server->server_path = strdup(path);
 	server->client_count = 0;
+	server->allocated_client_count = 0;
 	server->clients = NULL;
 	return server;
 	
@@ -152,7 +153,7 @@ int ipc_server_cycle(ipc_server_p server, int timeout, ipc_server_recv_handler_t
 		client->seq = 0;
 		client->client_private = NULL;
 		client->server_private = NULL;
-		connect_handler(client);
+		connect_handler(client - server->clients, client);
 	} else if (poll_fds[0].revents & POLLERR) {
 		// Error on the server socket
 		int error = 0;
@@ -170,17 +171,17 @@ int ipc_server_cycle(ipc_server_p server, int timeout, ipc_server_recv_handler_t
 			client_idx++;
 		} while(client->socket == -1);
 		
-		if (poll_fds[i+1].revents & POLLHUP){
+		if (poll_fds[i].revents & POLLHUP){
 			// Client connection closed, mark him dead and clean up our end
 			close(client->socket);
-			disconnect_handler(client);
+			disconnect_handler(client_idx, client);
 			free_client(server, client_idx);
 			// No point of receiving or sending messages to the closed fd, so skip
 			// the rest for this fd.
 			break;
 		}
 		
-		if (poll_fds[i+1].revents & POLLIN){
+		if (poll_fds[i].revents & POLLIN){
 			// There are messages to be read, loop until there is nothing more to read
 			plains_msg_t msg;
 			int err;
@@ -195,7 +196,7 @@ int ipc_server_cycle(ipc_server_p server, int timeout, ipc_server_recv_handler_t
 					break;
 				}
 				
-				recv_handler(client, &msg);
+				recv_handler(client_idx, client, &msg);
 			}
 		}
 	}

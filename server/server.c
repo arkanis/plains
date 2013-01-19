@@ -4,24 +4,59 @@
 #include "object_tree.h"
 #include "viewport.h"
 #include "renderer.h"
+#include "ipc_server.h"
 
 int main(int argc, char **argv){
 	renderer_p renderer = renderer_new(800, 800, "Plains");
 	object_tree_p world = object_tree_new((object_t){});
 	viewport_p viewport = vp_new(800, 800, 2.0, 0.0);
+	ipc_server_p server = ipc_server_new("server.socket", 3);
 	
-	object_tree_append(world, (object_t){0,   0,   0, 100, 100});
-	object_tree_p objA = object_tree_append(world, (object_t){150, 0,   0, 50, 100});
-		object_tree_p objB = object_tree_append(objA, (object_t){10, 10, 0, 40, 40});
-			object_tree_append(objB, (object_t){10, 10, 0, 10, 10});
-	object_tree_append(world, (object_t){0,   150, 0, 100, 50});
+	object_tree_append(world, (object_t){0,   0,   0, 100, 100, 999});
+	object_tree_p objA = object_tree_append(world, (object_t){150, 0,   0, 50, 100, 999});
+		object_tree_p objB = object_tree_append(objA, (object_t){10, 10, 0, 40, 40, 999});
+			object_tree_append(objB, (object_t){10, 10, 0, 10, 10, 999});
+	object_tree_append(world, (object_t){0,   150, 0, 100, 50, 999});
 	
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false, redraw = true;
 	
 	while (!quit) {
-		// Wait until events are in the queue
-		SDL_WaitEvent(NULL);
+		void connect_handler(size_t client_idx, ipc_client_p client){
+			printf("client connected %zu...\n", client_idx);
+		}
+		
+		void disconnect_handler(size_t client_idx, ipc_client_p client){
+			printf("client disconnected %zu...\n", client_idx);
+			
+			uint8_t client_cleaner(object_tree_p node){
+				if (node->value.client_idx == client_idx)
+					return true;
+				return false;
+			}
+			object_tree_delete(world, client_cleaner);
+			
+			redraw = true;
+		}
+		
+		void recv_handler(size_t client_idx, ipc_client_p client, plains_msg_p msg){
+			plains_msg_print(msg);
+			switch(msg->type){
+				case PLAINS_MSG_OBJECT_CREATE: {
+					object_tree_p obj = object_tree_append(world, (object_t){
+						msg->object_create.x, msg->object_create.y, msg->object_create.z,
+						msg->object_create.width, msg->object_create.height,
+						client_idx, msg->object_create.private
+					});
+					plains_msg_t resp;
+					ipc_server_send(client, msg_status(&resp, msg->seq, 0, (uint64_t)obj) );
+					
+					redraw = true;
+					} break;
+			}
+		}
+		
+		ipc_server_cycle(server, 10, recv_handler, connect_handler, disconnect_handler);
 		
 		// If we have events ready process them in one batch
 		while ( SDL_PollEvent(&e) ) {
@@ -166,6 +201,7 @@ int main(int argc, char **argv){
 		}
 	}
 	
+	ipc_server_destroy(server);
 	vp_destroy(viewport);
 	object_tree_destroy(world);
 	renderer_destroy(renderer);

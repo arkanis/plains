@@ -18,13 +18,24 @@ $messages = [
 	],
 	
 	// Common messages
+	// TODO: make id uint32_t again (no pointer magic!)
 	'status' => [
 		'seq' => 'uint16_t',
 		'status' => 'uint32_t',
-		'id' => 'uint32_t'
+		'id' => 'uint64_t'
 	],
 	
 	// Requests for clients
+	'object_create' => [
+		'x' => 'int64_t',
+		'y' => 'int64_t',
+		'z' => 'int8_t',
+		'width' => 'uint64_t',
+		'height' => 'uint64_t',
+		'private' => 'void*'
+	],
+	
+	// LEGACY
 	'layer_create' => [
 		'x' => 'int64_t',
 		'y' => 'int64_t',
