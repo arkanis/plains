@@ -13,6 +13,14 @@ renderer.o: renderer.c renderer.h draw_request.h viewport.o
 viewport.o: viewport.c viewport.h math.h object_tree.h
 	gcc -c $(GCC_FLAGS) viewport.c
 
+# Parts that depend on client library files
+PLAINS_OPTS = -I../client/include -L../client/link -lplains
+
+ipc_server.o: ipc_server.c ipc_server.h
+	cd ../client; make lib
+	gcc -c $(GCC_FLAGS) ipc_server.c $(PLAINS_OPTS)
+
+
 # Collections
 object_tree.c object_tree.h object_tree.o: tree.php
 	php $(PHP_OPTS) tree.php object_t object_tree "\"object.h\""
