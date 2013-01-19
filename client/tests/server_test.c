@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "../net.h"
+#include <plains/net.h>
 
 
 int main(int argc, char *argv[]) {

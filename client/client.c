@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "libplains.h"
+#include "client.h"
 #include "net.h"
 
 plains_con_p plains_connect(const char* socket_path){

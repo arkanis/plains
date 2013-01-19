@@ -1,8 +1,16 @@
 #include <unistd.h>
 #include <string.h>
-#include "../libplains.h"
+#include <stdio.h>
+
+#include <plains/client.h>
+
 
 int main(int argc, char **argv){
+	if (argc != 2){
+		fprintf(stderr, "usage: %s message\n", argv[0]);
+		return 1;
+	}
+	
 	plains_msg_t msg;
 	
 	plains_con_p con = plains_connect("server.socket");
