@@ -1,10 +1,20 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "object_tree.h"
+#include "draw_request_tree.h"
 #include "viewport.h"
 #include "renderer.h"
 #include "ipc_server.h"
+
+
+draw_request_tree_p build_draw_request_tree(object_tree_p world, viewport_p viewport);
+void check_for_empty_draw_tree_and_finish_rendering(draw_request_tree_p* draw_requests, renderer_p renderer);
+
 
 int main(int argc, char **argv){
 	renderer_p renderer = renderer_new(800, 800, "Plains");
@@ -12,6 +22,7 @@ int main(int argc, char **argv){
 	viewport_p viewport = vp_new(800, 800, 2.0, 0.0);
 	ipc_server_p server = ipc_server_new("server.socket", 3);
 	
+	/*
 	object_tree_append(world, (object_t){0,   0,   0, 100, 100, 999});
 	object_tree_p objA = object_tree_append(world, (object_t){150, 0,   0, 50, 100, 999});
 		object_tree_p objB = object_tree_append(objA, (object_t){10, 10, 0, 40, 40, 999});
@@ -21,8 +32,9 @@ int main(int argc, char **argv){
 	object_tree_p scursor = object_tree_append(viewport->screen_space_objects, (object_t){0, 0, 0, 10, 10, 999});
 	//object_tree_p wcursor = object_tree_append(world, (object_t){0,   0,   0, 20, 20, 999});
 	//object_tree_p wview = object_tree_append(world, (object_t){0,   0,   0, 1, 1, 999});
+	*/
 	
-	
+	draw_request_tree_p draw_requests = NULL, retained_draw_requests = NULL;
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false, redraw = true;
 	
@@ -43,7 +55,7 @@ int main(int argc, char **argv){
 		}
 		
 		void recv_handler(size_t client_idx, ipc_client_p client, plains_msg_p msg){
-			plains_msg_print(msg);
+			//plains_msg_print(msg);
 			switch(msg->type){
 				case PLAINS_MSG_OBJECT_CREATE: {
 					object_tree_p obj = object_tree_append(world, (object_t){
@@ -55,6 +67,65 @@ int main(int argc, char **argv){
 					ipc_server_send(client, msg_status(&resp, msg->seq, 0, (uint64_t)obj) );
 					
 					redraw = true;
+					} break;
+				case PLAINS_MSG_STATUS: {
+					// Search for draw request with a matching req_seq. We ignore the status
+					// response if there is no matching draw request.
+					// TODO: Would be more efficient to keep a list of expected response seq
+					// in the client structure.
+					draw_request_tree_p req_search_iterator(draw_request_tree_p node){
+						if (node->value.req_seq == msg->status.seq)
+							return node;
+						return NULL;
+					}
+					draw_request_tree_p req_node = draw_request_tree_iterate(draw_requests, req_search_iterator);
+					if (req_node == NULL)
+						break;
+					
+					if (msg->status.status == 0) {
+						// Draw request successful, the buffer contains the pixel data we want
+						// to draw.
+						req_node->value.flags |= DRAW_REQUEST_BUFFERED;
+						
+						// Check if all draw requests we depend on are done yet
+						bool blocked = false;
+						for(draw_request_tree_p node = req_node->parent; node != draw_requests; node = node->parent){
+							if ( !(node->value.flags & DRAW_REQUEST_DONE) ){
+								blocked = true;
+								break;
+							}
+						}
+						
+						// If we're blocked we need to wait til the parent is drawn. After
+						// that we will be drawn.
+						if (blocked)
+							break;
+						
+						// We're not blocked, get the pixels drawn
+						renderer_draw_response(renderer, &req_node->value);
+						req_node->value.flags |= DRAW_REQUEST_DONE;
+						
+						// Draw any dependent requests that are now unblocked
+						draw_request_tree_p draw_iterator(draw_request_tree_p node){
+							// Theoretically we could skip the DONE check since child requests
+							// can not be done before all parents (dependencies)... but well, just to be sure...
+							if ( !(node->value.flags & DRAW_REQUEST_DONE) && (node->value.flags & DRAW_REQUEST_BUFFERED) )
+								renderer_draw_response(renderer, &req_node->value);
+							return NULL;
+						}
+						draw_request_tree_iterate(req_node, draw_iterator);
+						
+						// Free the draw request tree if all requests are served
+						check_for_empty_draw_tree_and_finish_rendering(&draw_requests, renderer);
+					} else {
+						// Draw request failed, draw nothing, free shared memory and mark
+						// request as done (but not buffered). There is no need to keep the
+						// shared memory buffer around that has no useful contents.
+						close(req_node->value.shm_fd);
+						req_node->value.shm_fd = -1;
+						req_node->value.flags |= DRAW_REQUEST_DONE;
+					}
+					
 					} break;
 			}
 		}
@@ -104,15 +175,17 @@ int main(int argc, char **argv){
 					/*
 					{
 						vec2_t world_cursor = m3_v2_mul(viewport->screen_to_world, (vec2_t){e.button.x, e.button.y});
-						wcursor->value.x = world_cursor.x;
-						wcursor->value.y = world_cursor.y;
-						printf("world_cursor: %f %f, %lu %lu\n", world_cursor.x, world_cursor.y, wcursor->value.width, wcursor->value.height);
+						if (world->first){
+							world->first->value.x = world_cursor.x;
+							world->first->value.y = world_cursor.y;
+						}
+						printf("world_cursor: %f %f, %lu %lu\n", world_cursor.x, world_cursor.y, world->first->value.width, world->first->value.height);
 					}
-					*/
 					scursor->value.x = e.button.x;
 					scursor->value.y = e.button.y;
 					
 					redraw = true;
+					*/
 					
 					if (viewport_grabbed) {
 						// Only use the scaling factors from the current screen to world matrix. Since we work
@@ -162,28 +235,28 @@ int main(int argc, char **argv){
 						//case SDL_BUTTON_RIGHT:
 						//	break;
 						case SDL_BUTTON_WHEELUP:
-							viewport->scale_exp -= 1;
-							{
-								vec2_t world_cursor = m3_v2_mul(viewport->screen_to_world, (vec2_t){e.button.x, e.button.y});
-								//printf("cursor %d, %d, world: %f, %f\n", e.button.x, e.button.y, world_cursor.x, world_cursor.y);
-								float new_scale = vp_scale_for(viewport, viewport->scale_exp);
-								viewport->pos = (ivec2_t){
-									world_cursor.x + (viewport->pos.x - world_cursor.x) * (new_scale / viewport->scale),
-									world_cursor.y + (viewport->pos.y - world_cursor.y) * (new_scale / viewport->scale)
-								};
-							}
-							vp_changed(viewport);
-							redraw = true;
-							break;
-						case SDL_BUTTON_WHEELDOWN:
 							viewport->scale_exp += 1;
 							{
 								vec2_t world_cursor = m3_v2_mul(viewport->screen_to_world, (vec2_t){e.button.x, e.button.y});
 								//printf("cursor %d, %d, world: %f, %f\n", e.button.x, e.button.y, world_cursor.x, world_cursor.y);
 								float new_scale = vp_scale_for(viewport, viewport->scale_exp);
 								viewport->pos = (ivec2_t){
-									world_cursor.x + (viewport->pos.x - world_cursor.x) * (new_scale / viewport->scale),
-									world_cursor.y + (viewport->pos.y - world_cursor.y) * (new_scale / viewport->scale)
+									world_cursor.x + (viewport->pos.x - world_cursor.x) * (viewport->scale / new_scale),
+									world_cursor.y + (viewport->pos.y - world_cursor.y) * (viewport->scale / new_scale)
+								};
+							}
+							vp_changed(viewport);
+							redraw = true;
+							break;
+						case SDL_BUTTON_WHEELDOWN:
+							viewport->scale_exp -= 1;
+							{
+								vec2_t world_cursor = m3_v2_mul(viewport->screen_to_world, (vec2_t){e.button.x, e.button.y});
+								//printf("cursor %d, %d, world: %f, %f\n", e.button.x, e.button.y, world_cursor.x, world_cursor.y);
+								float new_scale = vp_scale_for(viewport, viewport->scale_exp);
+								viewport->pos = (ivec2_t){
+									world_cursor.x + (viewport->pos.x - world_cursor.x) * (viewport->scale / new_scale),
+									world_cursor.y + (viewport->pos.y - world_cursor.y) * (viewport->scale / new_scale)
 								};
 							}
 							vp_changed(viewport);
@@ -196,54 +269,72 @@ int main(int argc, char **argv){
 			}
 		}
 		
+		
 		if (redraw) {
-			//draw_request_tree_p req_tree = draw_request_tree_new((draw_request_t){});
-			
-			renderer_clear(renderer);
-			irect_t screen_rect = vp_vis_world_rect(viewport);
-			/*
-			wview->value.x = screen_rect.x;
-			wview->value.y = screen_rect.y;
-			wview->value.width = screen_rect.w;
-			wview->value.height = screen_rect.h;
-			*/
-			
-			object_tree_p draw_iterator(object_tree_p node){
-				// Calculate non nested world coords
-				int64_t x = node->value.x, y = node->value.y;
-				for(object_tree_p n = node->parent; n; n = n->parent){
-					x += n->value.x;
-					y += n->value.y;
-				}
-				
-				// Check if it is visible
-				irect_t i = irect_intersection((irect_t){x, y, node->value.width, node->value.height}, screen_rect);
-				if( i.w == 0 || i.h == 0 )
+			// If we have any retained draw requests left we need to clean them up before starting new stuff
+			if (retained_draw_requests) {
+				// TODO: Merge retained draw request buffers into any current draw request buffers
+				// Free retained draw requests (shared memory files and tree)
+				draw_request_tree_p free_iterator(draw_request_tree_p node){
+					close(node->value.shm_fd);
 					return NULL;
-				
-				draw_request_t req = (draw_request_t){ .x = x, .y = y, .object = &node->value,
-					.color = (color_t){0, 0, 1, 0.5}, .transform = &viewport->world_to_normal[0] };
-				renderer_draw_response(renderer, &req);
-				return NULL;
+				}
+				draw_request_tree_iterate(retained_draw_requests, free_iterator);
+				draw_request_tree_destroy(retained_draw_requests);
 			}
-			object_tree_iterate(world, draw_iterator);
 			
-			object_tree_p screen_draw_iterator(object_tree_p node){
-				// Calculate non nested screen coords
-				int64_t x = node->value.x, y = node->value.y;
-				for(object_tree_p n = node->parent; n; n = n->parent){
-					x += n->value.x;
-					y += n->value.y;
+			// Remember any draw requests that are still running in case something was late or
+			// we interrupted a running draw operation.
+			retained_draw_requests = draw_requests;
+			
+			// Send out draw requests for all visible objects
+			draw_requests = build_draw_request_tree(world, viewport);
+			
+			draw_request_tree_p send_iterator(draw_request_tree_p node){
+				draw_request_p req = &node->value;
+				
+				// Create a shared memory file and delete it directly afterwards. We just
+				// want the file descriptor. As long as it is open the file data is not
+				// deleted.
+				const char *shm_name = "/plains_object";
+				int fd = shm_open(shm_name, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+				if (fd == -1){
+					perror("shm_open() failed");
+					return NULL;
 				}
 				
-				draw_request_t req = (draw_request_t){ .x = x, .y = y, .object = &node->value,
-					.color = (color_t){0, 0, 1, 0.5}, .transform = &viewport->screen_to_normal[0] };
-				renderer_draw_response(renderer, &req);
+				if ( shm_unlink(shm_name) == -1 )
+					perror("shm_unlink() failed");
+				
+				req->shm_fd = fd;
+				size_t shm_size = req->rw * req->rh * 4;
+				if ( ftruncate(fd, shm_size) == -1 )
+					perror("ftruncate() on shared memory failed");
+				
+				// Send fd to client to render the stuff into. Then wait for the status response.
+				size_t client_idx = req->object->client_idx;
+				ipc_client_p client = &server->clients[client_idx];
+				plains_msg_t msg;
+				int err = ipc_server_send(client, msg_draw(&msg,
+					(uint64_t)req->object, req->object->client_private,
+					req->rx, req->ry, req->rw, req->rh,
+					req->scale, req->bw, req->bh, req->shm_fd
+				));
+				
+				// If we failed to send the request mark it done so it does not block other requests
+				if (err < 0)
+					req->flags |= DRAW_REQUEST_DONE;
+				else
+					req->req_seq = msg.seq;
+				
 				return NULL;
 			}
-			object_tree_iterate(viewport->screen_space_objects, screen_draw_iterator);
+			draw_request_tree_iterate(draw_requests, send_iterator);
 			
-			render_finish_draw(renderer);
+			// Clear back buffer
+			renderer_clear(renderer);
+			
+			check_for_empty_draw_tree_and_finish_rendering(&draw_requests, renderer);
 			
 			redraw = false;
 		}
@@ -255,4 +346,71 @@ int main(int argc, char **argv){
 	renderer_destroy(renderer);
 	
 	return 0;
+}
+
+draw_request_tree_p build_draw_request_tree(object_tree_p world, viewport_p viewport){
+	draw_request_tree_p tree = draw_request_tree_new((draw_request_t){});
+	irect_t screen_rect = vp_vis_world_rect(viewport);
+	float scale = viewport->scale;
+	
+	object_tree_p draw_iterator(object_tree_p node){
+		// Calculate non nested world coords
+		int64_t x = node->value.x, y = node->value.y;
+		for(object_tree_p n = node->parent; n; n = n->parent){
+			x += n->value.x;
+			y += n->value.y;
+		}
+		
+		// Check if it is visible
+		irect_t i = irect_intersection((irect_t){x, y, node->value.width, node->value.height}, screen_rect);
+		if( i.w == 0 || i.h == 0 )
+			return NULL;
+		
+		// Only scale buffer to smaller levels. There is no use in letting
+		// the client render stuff more accurate than we can display on the
+		// screen.
+		float buffer_scale = (scale < 1) ? scale : 1;
+		draw_request_tree_append(tree, (draw_request_t){
+			.object = &node->value,
+			.wx = i.x, .wy = i.y, .ww = i.w, .wh = i.h,
+			.transform = &viewport->world_to_normal[0],
+			.bw = i.w * buffer_scale, .bh = i.h * buffer_scale,
+			
+			.scale = scale,
+			.rx = imax(screen_rect.x - x, 0), .ry = imax(screen_rect.y - y, 0),
+			.rw = i.w, .rh = i.h,
+			
+			.color = (color_t){0, 0, 1, 0.5},
+			.shm_fd = -1, .req_seq = 0, .flags = 0
+		});
+		
+		return NULL;
+	}
+	object_tree_iterate(world, draw_iterator);
+	
+	return tree;
+}
+
+void check_for_empty_draw_tree_and_finish_rendering(draw_request_tree_p* draw_requests, renderer_p renderer){
+	size_t pending_draw_requests = 0;
+	draw_request_tree_p count_iterator(draw_request_tree_p node){
+		if ( !(node->value.flags & DRAW_REQUEST_DONE) )
+			pending_draw_requests++;
+		return NULL;
+	}
+	draw_request_tree_iterate(*draw_requests, count_iterator);
+	
+	if (pending_draw_requests == 0){
+		render_finish_draw(renderer);
+		
+		draw_request_tree_p free_iterator(draw_request_tree_p node){
+			if (node->value.shm_fd != -1)
+				close(node->value.shm_fd);
+			return NULL;
+		}
+		draw_request_tree_iterate(*draw_requests, free_iterator);
+		
+		draw_request_tree_destroy(*draw_requests);
+		*draw_requests = NULL;
+	}
 }

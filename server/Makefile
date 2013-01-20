@@ -1,13 +1,13 @@
-GCC_FLAGS = -std=gnu99 -g -Wall
+GCC_FLAGS = -std=gnu99 -O3 -Wall
 PHP_OPTS = -d short_open_tag=on
 
 # For parts that depend on client library files
 PLAINS_OPTS = -I../client/include -L../client/link -lplains
 
 # Main programs
-SERVER_OBJS = viewport.o renderer.o object_tree.o math.o ipc_server.o
+SERVER_OBJS = viewport.o renderer.o object_tree.o math.o ipc_server.o draw_request_tree.o
 server: server.c $(SERVER_OBJS)
-	gcc $(GCC_FLAGS) server.c $(SERVER_OBJS) -lSDL -lGL -lm $(PLAINS_OPTS) -o server
+	gcc $(GCC_FLAGS) server.c $(SERVER_OBJS) -lSDL -lGL -lm -lrt $(PLAINS_OPTS) -o server
 
 # Parts that depend on the client library
 ipc_server.o: ipc_server.c ipc_server.h
@@ -37,5 +37,5 @@ math.o: math.c math.h
 	gcc -c $(GCC_FLAGS) math.c
 
 clean:
-	rm -f *.o server object_tree.c object_tree.h draw_request_tree.c draw_request_tree.h
+	rm -f `tr '\n' ' ' < .gitignore`
 	cd tests; make clean

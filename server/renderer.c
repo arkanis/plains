@@ -82,6 +82,21 @@ void renderer_clear(renderer_p renderer){
 }
 
 void renderer_draw_response(renderer_p renderer, draw_request_p req){
+	// Make sure we have the pixel data
+	assert( (req->flags & DRAW_REQUEST_BUFFERED) && req->shm_fd != -1 );
+	
+	// Map shared memory and upload the pixel data. When done unmap the
+	// shared memory.
+	size_t shm_size = req->bw * req->bh * 4;
+	void *pixel_data = mmap(NULL, shm_size, PROT_READ, MAP_SHARED, req->shm_fd, 0);
+	assert(pixel_data != NULL);
+	
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, renderer->texture);
+	glTexSubImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, 0, 0, req->bw, req->bh, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data);
+	//glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+	
+	munmap(pixel_data, shm_size);
+	
 	// Allocate vertex buffer object for drawing
 	glBindBuffer(GL_ARRAY_BUFFER, renderer->vertex_buffer);
 	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), NULL, GL_STREAM_DRAW);
@@ -89,11 +104,11 @@ void renderer_draw_response(renderer_p renderer, draw_request_p req){
 	
 	// bo is short for buffer_offset
 	size_t bo = 0;
-	int64_t x = req->x, y = req->y, w = req->object->width, h = req->object->height;
-	buffer[bo++] = x + 0;  buffer[bo++] = y + 0;  buffer[bo++] = 0;  buffer[bo++] = 0;
-	buffer[bo++] = x + w;  buffer[bo++] = y + 0;  buffer[bo++] = w;  buffer[bo++] = 0;
-	buffer[bo++] = x + w;  buffer[bo++] = y + h;  buffer[bo++] = w;  buffer[bo++] = h;
-	buffer[bo++] = x + 0;  buffer[bo++] = y + h;  buffer[bo++] = 0;  buffer[bo++] = h;
+	int64_t x = req->wx, y = req->wy, w = req->ww, h = req->wh;
+	buffer[bo++] = x + 0;  buffer[bo++] = y + 0;  buffer[bo++] =       0;  buffer[bo++] =       0;
+	buffer[bo++] = x + w;  buffer[bo++] = y + 0;  buffer[bo++] = req->bw;  buffer[bo++] =       0;
+	buffer[bo++] = x + w;  buffer[bo++] = y + h;  buffer[bo++] = req->bw;  buffer[bo++] = req->bh;
+	buffer[bo++] = x + 0;  buffer[bo++] = y + h;  buffer[bo++] =       0;  buffer[bo++] = req->bh;
 	
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	
@@ -110,11 +125,21 @@ void renderer_draw_response(renderer_p renderer, draw_request_p req){
 	glUniformMatrix3fv(world_to_norm_uni, 1, GL_FALSE, req->transform);
 	
 	GLint color_uni = glGetUniformLocation(renderer->prog, "color");
-	assert(color_uni != -1);
-	glUniform4f(color_uni, req->color.r, req->color.g, req->color.b, req->color.a);
+	if (color_uni != -1)
+		glUniform4f(color_uni, req->color.r, req->color.g, req->color.b, req->color.a);
 	
+	glActiveTexture(GL_TEXTURE0);
+	GLint tex_attrib = glGetUniformLocation(renderer->prog, "tex");
+	if(tex_attrib != -1)
+		glUniform1i(tex_attrib, 0);
+	
+	//glBindTexture(GL_TEXTURE_RECTANGLE_ARB, renderer->texture);
+	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glDrawArrays(GL_QUADS, 0, 4);
 	
+	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glUseProgram(0);
 }

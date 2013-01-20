@@ -1,0 +1,6 @@
+*.o
+server
+object_tree.c
+object_tree.h
+draw_request_tree.c
+draw_request_tree.h

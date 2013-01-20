@@ -30,11 +30,11 @@ void vp_changed(viewport_p vp){
 	
 	if (aspect_ratio > 1) {
 		// Landscape format, use world_default_size.y as minimal height
-		vp->world_size.y = vp->world_default_size.y * vp->scale;
+		vp->world_size.y = vp->world_default_size.y / vp->scale;
 		vp->world_size.x = vp->world_size.y * aspect_ratio;
 	} else {
 		// Portrait format, use world_default_size.x as minimal width
-		vp->world_size.x = vp->world_default_size.x * vp->scale;
+		vp->world_size.x = vp->world_default_size.x / vp->scale;
 		vp->world_size.y = vp->world_size.x / aspect_ratio;
 	}
 	

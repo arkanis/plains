@@ -162,13 +162,14 @@ int ipc_server_cycle(ipc_server_p server, int timeout, ipc_server_recv_handler_t
 		fprintf(stderr, "server socket error: %s\n", strerror(error));
 	}
 	
-	client_idx = 0;
+	size_t ci = 0;
 	for(size_t i = 1; i < poll_fd_count; i++){
 		// Skip dead clients as we did when building the poll_fd array
 		ipc_client_p client = NULL;
 		do {
+			client_idx = ci;
 			client = &server->clients[client_idx];
-			client_idx++;
+			ci++;
 		} while(client->socket == -1);
 		
 		if (poll_fds[i].revents & POLLHUP){

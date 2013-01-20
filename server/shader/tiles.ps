@@ -5,6 +5,6 @@ uniform vec4 color;
 varying vec2 tex_coords;
 
 void main(){
-	//gl_FragColor = texture2DRect(tex, tex_coords);
-	gl_FragColor = color;
+	gl_FragColor = texture2DRect(tex, tex_coords);
+	//gl_FragColor = 0.5 * texture2DRect(tex, tex_coords) + 0.5 * color;
 }
