@@ -67,18 +67,23 @@ $messages = [
 		'x' => 'uint16_t',
 		'y' => 'uint16_t'
 	],
+	
+	// TODO: make id uint32_t again (no pointer magic!)
 	'draw' => [
-		'layer_id' => 'uint32_t',
+		'object_id' => 'uint64_t',
 		'private' => 'void*',
-		'shm_fd' => 'plains_fd_t',
 		
+		// Rect of the object that needs to be drawn
 		'x' => 'int64_t',
 		'y' => 'int64_t',
-		'z' => 'int64_t',
 		'width' => 'uint64_t',
 		'height' => 'uint64_t',
-		'scale_index' => 'int8_t',
-		'scale' => 'float'
+		
+		// Buffer size and scale
+		'scale' => 'float',
+		'buffer_width' => 'uint64_t',
+		'buffer_height' => 'uint64_t',
+		'shm_fd' => 'plains_fd_t'
 	]
 ];
 $len_type = 'size_t';
