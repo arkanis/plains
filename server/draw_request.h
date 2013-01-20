@@ -7,4 +7,5 @@ typedef struct {
 	int64_t x, y;
 	object_p object;
 	color_t color;
+	float* transform;
 } draw_request_t, *draw_request_p;

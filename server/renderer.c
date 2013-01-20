@@ -81,7 +81,7 @@ void renderer_clear(renderer_p renderer){
 	glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void renderer_draw_response(renderer_p renderer, viewport_p viewport, draw_request_p req){
+void renderer_draw_response(renderer_p renderer, draw_request_p req){
 	// Allocate vertex buffer object for drawing
 	glBindBuffer(GL_ARRAY_BUFFER, renderer->vertex_buffer);
 	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), NULL, GL_STREAM_DRAW);
@@ -89,7 +89,7 @@ void renderer_draw_response(renderer_p renderer, viewport_p viewport, draw_reque
 	
 	// bo is short for buffer_offset
 	size_t bo = 0;
-	uint64_t x = req->x, y = req->y, w = req->object->width, h = req->object->height;
+	int64_t x = req->x, y = req->y, w = req->object->width, h = req->object->height;
 	buffer[bo++] = x + 0;  buffer[bo++] = y + 0;  buffer[bo++] = 0;  buffer[bo++] = 0;
 	buffer[bo++] = x + w;  buffer[bo++] = y + 0;  buffer[bo++] = w;  buffer[bo++] = 0;
 	buffer[bo++] = x + w;  buffer[bo++] = y + h;  buffer[bo++] = w;  buffer[bo++] = h;
@@ -107,7 +107,7 @@ void renderer_draw_response(renderer_p renderer, viewport_p viewport, draw_reque
 	
 	GLint world_to_norm_uni = glGetUniformLocation(renderer->prog, "world_to_norm");
 	assert(world_to_norm_uni != -1);
-	glUniformMatrix3fv(world_to_norm_uni, 1, GL_FALSE, viewport->world_to_normal);
+	glUniformMatrix3fv(world_to_norm_uni, 1, GL_FALSE, req->transform);
 	
 	GLint color_uni = glGetUniformLocation(renderer->prog, "color");
 	assert(color_uni != -1);

@@ -19,5 +19,5 @@ void renderer_destroy(renderer_p renderer);
 void renderer_resize(renderer_p renderer, uint16_t window_width, uint16_t window_height);
 
 void renderer_clear(renderer_p renderer);
-void renderer_draw_response(renderer_p renderer, viewport_p viewport, draw_request_p req);
+void renderer_draw_response(renderer_p renderer, draw_request_p req);
 void render_finish_draw(renderer_p renderer);

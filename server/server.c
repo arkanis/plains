@@ -16,7 +16,12 @@ int main(int argc, char **argv){
 	object_tree_p objA = object_tree_append(world, (object_t){150, 0,   0, 50, 100, 999});
 		object_tree_p objB = object_tree_append(objA, (object_t){10, 10, 0, 40, 40, 999});
 			object_tree_append(objB, (object_t){10, 10, 0, 10, 10, 999});
-	object_tree_append(world, (object_t){0,   150, 0, 100, 50, 999});
+	object_tree_append(world, (object_t){-5,   150, 0, 100, 50, 999});
+	
+	object_tree_p scursor = object_tree_append(viewport->screen_space_objects, (object_t){0, 0, 0, 10, 10, 999});
+	//object_tree_p wcursor = object_tree_append(world, (object_t){0,   0,   0, 20, 20, 999});
+	//object_tree_p wview = object_tree_append(world, (object_t){0,   0,   0, 1, 1, 999});
+	
 	
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false, redraw = true;
@@ -30,9 +35,7 @@ int main(int argc, char **argv){
 			printf("client disconnected %zu...\n", client_idx);
 			
 			uint8_t client_cleaner(object_tree_p node){
-				if (node->value.client_idx == client_idx)
-					return true;
-				return false;
+				return (node->value.client_idx == client_idx);
 			}
 			object_tree_delete(world, client_cleaner);
 			
@@ -98,12 +101,36 @@ int main(int argc, char **argv){
 				case SDL_KEYDOWN:
 					break;
 				case SDL_MOUSEMOTION:
+					/*
+					{
+						vec2_t world_cursor = m3_v2_mul(viewport->screen_to_world, (vec2_t){e.button.x, e.button.y});
+						wcursor->value.x = world_cursor.x;
+						wcursor->value.y = world_cursor.y;
+						printf("world_cursor: %f %f, %lu %lu\n", world_cursor.x, world_cursor.y, wcursor->value.width, wcursor->value.height);
+					}
+					*/
+					scursor->value.x = e.button.x;
+					scursor->value.y = e.button.y;
+					
+					redraw = true;
+					
 					if (viewport_grabbed) {
 						// Only use the scaling factors from the current screen to world matrix. Since we work
 						// with deltas here the offsets are not necessary (in fact would destroy the result).
+						// We also invert the position differences so the world moves along the cursor (not in
+						// the opposite direction).
 						//printf("scale %f, %f, rel %d, %d\n", viewport->screen_to_world[0], viewport->screen_to_world[4], e.motion.xrel, e.motion.yrel);
-						viewport->pos.x += -viewport->screen_to_world[0] * e.motion.xrel;
-						viewport->pos.y += viewport->screen_to_world[4] * e.motion.yrel;
+						float dx = viewport->subpixel_pos.x + -viewport->screen_to_world[0] * e.motion.xrel;
+						float dy = viewport->subpixel_pos.y + -viewport->screen_to_world[4] * e.motion.yrel;
+						float dxi, dyi;
+						dx = modff(dx, &dxi);
+						dy = modff(dy, &dyi);
+						
+						viewport->pos.x += dxi;
+						viewport->pos.y += dyi;
+						viewport->subpixel_pos.x = dx;
+						viewport->subpixel_pos.y = dy;
+						
 						vp_changed(viewport);
 						redraw = true;
 					}
@@ -174,8 +201,12 @@ int main(int argc, char **argv){
 			
 			renderer_clear(renderer);
 			irect_t screen_rect = vp_vis_world_rect(viewport);
-			screen_rect.x += 100; screen_rect.y += 100;
-			screen_rect.w -= 200; screen_rect.h -= 200;
+			/*
+			wview->value.x = screen_rect.x;
+			wview->value.y = screen_rect.y;
+			wview->value.width = screen_rect.w;
+			wview->value.height = screen_rect.h;
+			*/
 			
 			object_tree_p draw_iterator(object_tree_p node){
 				// Calculate non nested world coords
@@ -190,11 +221,28 @@ int main(int argc, char **argv){
 				if( i.w == 0 || i.h == 0 )
 					return NULL;
 				
-				draw_request_t req = (draw_request_t){ .x = x, .y = y, .object = &node->value, .color = (color_t){0, 0, 1, 0.5} };
-				renderer_draw_response(renderer, viewport, &req);
+				draw_request_t req = (draw_request_t){ .x = x, .y = y, .object = &node->value,
+					.color = (color_t){0, 0, 1, 0.5}, .transform = &viewport->world_to_normal[0] };
+				renderer_draw_response(renderer, &req);
 				return NULL;
 			}
 			object_tree_iterate(world, draw_iterator);
+			
+			object_tree_p screen_draw_iterator(object_tree_p node){
+				// Calculate non nested screen coords
+				int64_t x = node->value.x, y = node->value.y;
+				for(object_tree_p n = node->parent; n; n = n->parent){
+					x += n->value.x;
+					y += n->value.y;
+				}
+				
+				draw_request_t req = (draw_request_t){ .x = x, .y = y, .object = &node->value,
+					.color = (color_t){0, 0, 1, 0.5}, .transform = &viewport->screen_to_normal[0] };
+				renderer_draw_response(renderer, &req);
+				return NULL;
+			}
+			object_tree_iterate(viewport->screen_space_objects, screen_draw_iterator);
+			
 			render_finish_draw(renderer);
 			
 			redraw = false;

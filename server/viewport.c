@@ -40,9 +40,9 @@ void vp_changed(viewport_p vp){
 	
 	// Calculate matrix to convert screen coords back to world coords
 	float sx = vp->world_size.x / (float)vp->screen_size.x;
-	float sy = -vp->world_size.y / (float)vp->screen_size.y;
+	float sy = vp->world_size.y / (float)vp->screen_size.y;
 	float tx = -0.5 * vp->world_size.x + vp->pos.x + vp->subpixel_pos.x;
-	float ty = 0.5 * vp->world_size.y + vp->pos.y + vp->subpixel_pos.y;
+	float ty = -0.5 * vp->world_size.y + vp->pos.y + vp->subpixel_pos.y;
 	m3_transpose(vp->screen_to_world, (mat3_t){
 		sx, 0, tx,
 		0, sy, ty,
@@ -97,8 +97,8 @@ float vp_scale_for(viewport_p vp, float exp){
 }
 
 irect_t vp_vis_world_rect(viewport_p vp){
-	uint64_t w = vp->world_size.x * vp->scale;
-	uint64_t h = vp->world_size.y * vp->scale;
+	uint64_t w = vp->world_size.x;
+	uint64_t h = vp->world_size.y;
 	return (irect_t){
 		.x = vp->pos.x - w / 2, .y = vp->pos.y - h / 2,
 		.w = w, .h = h
