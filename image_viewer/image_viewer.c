@@ -4,13 +4,107 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdio.h>
+// For a proper basename (GNU version)
+#define _GNU_SOURCE
 #include <string.h>
+#include <libgen.h>
 
-#include <ftw.h>
 #include <math.h>
+// For type constants of readdir()
+#include <dirent.h>
 
 #include <plains/client.h>
 #include "stb_image.c"
+
+
+typedef struct data_entry_s data_entry_t, *data_entry_p;
+
+struct data_entry_s {
+	const char* name;
+	int64_t x, y;
+	data_entry_p next;
+};
+
+typedef struct {
+	const char* path;
+	data_entry_p head;
+} dir_metadata_t, *dir_metadata_p;
+
+data_entry_p metadata_prepend(dir_metadata_p metadata){
+	data_entry_p item = malloc(sizeof(data_entry_t));
+	item->next = metadata->head;
+	metadata->head = item;
+	return item;
+}
+
+dir_metadata_p metadata_read(const char *path){
+	dir_metadata_p metadata = malloc(sizeof(dir_metadata_t));
+	metadata->path = path;
+	metadata->head = NULL;
+	
+	FILE* f = fopen(path, "rb");
+	if (f == NULL)
+		return metadata;
+	
+	int64_t x, y;
+	char name[1024];
+	
+	while( !feof(f) ){
+		fscanf(f, "%1024[^\t] pos( %ld , %ld ) ", name, &x, &y);
+		data_entry_p item = metadata_prepend(metadata);
+		item->name = strdup(name);
+		item->x = x;
+		item->y = y;
+	}
+	
+	fclose(f);
+	return metadata;
+}
+
+void metadata_write(dir_metadata_p metadata){
+	if (metadata == NULL)
+		return;
+	
+	FILE* f = fopen(metadata->path, "wb");
+	for(data_entry_p n = metadata->head; n; n = n->next){
+		fprintf(f, "%s\tpos(%ld, %ld)\n", n->name, n->x, n->y);
+	}
+	fclose(f);
+}
+
+data_entry_p metadata_get(dir_metadata_p metadata, const char *path){
+	if (metadata == NULL)
+		return NULL;
+	
+	for(data_entry_p n = metadata->head; n; n = n->next){
+		if ( strcmp(n->name, path) == 0 )
+			return n;
+	}
+	
+	return NULL;
+}
+
+void metadata_set(dir_metadata_p metadata, const char *path, int64_t x, int64_t y){
+	data_entry_p d = metadata_get(metadata, path);
+	if (d) {
+		d->x = x;
+		d->y = y;
+	} else if (metadata) {
+		data_entry_p item = metadata_prepend(metadata);
+		item->name = path;
+		item->x = x;
+		item->y = y;
+	}
+}
+
+char* str_append(const char *a, const char *b){
+	size_t alen = strlen(a), blen = strlen(b);
+	char* dest = malloc(alen + blen + 1);
+	strcpy(dest, a);
+	strcpy(dest + alen, b);
+	return dest;
+}
+
 
 
 plains_con_p con;
@@ -23,9 +117,11 @@ typedef struct {
 	size_t level_count;
 	uint32_t **levels;
 	uint64_t object_id;
+	char *filename;
+	dir_metadata_p metadata;
 } imagedata_t, *imagedata_p;
 
-void load_file(const char *path){
+void load_file(const char *path, dir_metadata_p metadata){
 	printf("loading file %s...\n", path);
 	
 	int w = 0, h = 0;
@@ -41,9 +137,20 @@ void load_file(const char *path){
 	printf("  %dx%d, %.1f MiByte, %zu levels\n", w, h, (w*h*4.0)/(1024*1024), level_count);
 	
 	imagedata_p image_data = malloc(sizeof(imagedata_t));
-	image_data->x = pos_x;
-	pos_x += w + 25;
-	image_data->y = 0;
+	// the GNU version of basename() does not modify the path, so it's safe
+	// to case the const away.
+	image_data->filename = strdup(basename((char*)path));
+	image_data->metadata = metadata;
+	
+	data_entry_p mde = metadata_get(metadata, image_data->filename);
+	if (mde) {
+		image_data->x = mde->x;
+		image_data->y = mde->y;
+	} else {
+		image_data->x = pos_x;
+		pos_x += w + 25;
+		image_data->y = 0;
+	}
 	
 	image_data->w = w;
 	image_data->h = h;
@@ -125,6 +232,42 @@ void load_file(const char *path){
 	//stbi_image_free(data);
 }
 
+
+typedef void (*dir_walker_t)(const char *path, uint8_t type);
+
+/**
+ * Traverse a directory tree. Traversal order: directory itself, its files, child directories.
+ * This is unlike ftw(). Therefore we had to do it by ourselfs.
+ */
+void file_tree_walk(const char *path, dir_walker_t walker){
+	// Walk our directory itself
+	walker(path, DT_DIR);
+	
+	char* old_wd = getcwd(NULL, 0); // Buffer allocated automatically (GNU ext.)
+	
+	DIR* dir = opendir(path);
+	struct dirent *de = NULL;
+	chdir(path);
+	
+	// Now walk all files in this directory
+	while( (de = readdir(dir)) != NULL ){
+		if (de->d_type != DT_DIR)
+			walker(de->d_name, de->d_type);
+	}
+	
+	// Rewind and walk all subdirectories
+	rewinddir(dir);
+	while( (de = readdir(dir)) != NULL ){
+		if (de->d_type == DT_DIR && !(strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0))
+			file_tree_walk(de->d_name, walker);
+	}
+	
+	closedir(dir);
+	
+	chdir(old_wd);
+	free(old_wd);
+}
+
 int main(int argc, char **argv){
 	if (argc != 3){
 		printf("Usage: %s socket-path dir-or-image\n", argv[0]);
@@ -143,17 +286,20 @@ int main(int argc, char **argv){
 	stat(image_path, &s);
 	if ( ! S_ISDIR(s.st_mode) ) {
 		// Load just the single file
-		load_file(image_path);
+		load_file(image_path, NULL);
 	} else {
-		// Load dir recursively
-		int walker(const char *path, const struct stat *sb, int typeflag){
-			if (typeflag != FTW_F)
-				return 0;
-			load_file(path);
-			return 0;
+		dir_metadata_p dir_metadata = NULL;
+		// Load dir recursively (ftw traversed directories before their content)
+		void walker(const char *path, uint8_t type){
+			if (type == DT_DIR) {
+				// We're at a directory, look for metadata
+				dir_metadata = metadata_read(str_append(path, "/.plains"));
+			} else if (type == DT_REG) {
+				load_file(path, dir_metadata);
+			}
 		}
 		
-		ftw(image_path, walker, 10);
+		file_tree_walk(image_path, walker);
 	}
 	
 	while( plains_receive(con, &msg) > 0 ){
@@ -212,7 +358,10 @@ int main(int argc, char **argv){
 					plains_send(con, msg_object_update(&msg, img->object_id,
 						img->x, img->y, 0, img->w, img->h, img)
 					);
-					plains_msg_print(&msg);
+					//plains_msg_print(&msg);
+					
+					metadata_set(img->metadata, img->filename, img->x, img->y);
+					metadata_write(img->metadata);
 				}
 				break;
 		}
