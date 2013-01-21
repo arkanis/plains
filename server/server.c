@@ -23,6 +23,8 @@ int main(int argc, char **argv){
 	viewport_p viewport = vp_new(800, 800, 2.0, 0.0);
 	ipc_server_p server = ipc_server_new("server.socket", 3);
 	
+	object_tree_p grabbed = NULL;
+	
 	/*
 	object_tree_append(world, (object_t){0,   0,   0, 100, 100, 999});
 	object_tree_p objA = object_tree_append(world, (object_t){150, 0,   0, 50, 100, 999});
@@ -220,6 +222,17 @@ int main(int argc, char **argv){
 						
 						vp_changed(viewport);
 						redraw = true;
+					} else if (grabbed) {
+						object_p obj = &grabbed->value;
+						ivec2_t world_pos = vp_screen_to_world_pos(viewport, e.motion.x, e.motion.y);
+						
+						ipc_client_p client = &server->clients[obj->client_idx];
+						plains_msg_t msg;
+						ipc_server_send(client, msg_mouse_motion(&msg,
+							(uint64_t)obj, obj->client_private, 1,
+							e.motion.state, obj->x - world_pos.x, obj->y - world_pos.y,
+							e.motion.xrel / viewport->scale, e.motion.yrel / viewport->scale
+						));
 					} else {
 						ivec2_t world_pos = vp_screen_to_world_pos(viewport, e.motion.x, e.motion.y);
 						//printf("world_pos: %ld %ld\n", world_pos.x, world_pos.y);
@@ -240,8 +253,10 @@ int main(int argc, char **argv){
 					break;
 				case SDL_MOUSEBUTTONDOWN:
 					switch(e.button.button){
-						case SDL_BUTTON_LEFT:
-							break;
+						case SDL_BUTTON_LEFT: {
+							ivec2_t world_pos = vp_screen_to_world_pos(viewport, e.button.x, e.button.y);
+							grabbed = find_hit_object(world, world_pos);
+							} break;
 						case SDL_BUTTON_MIDDLE:
 							break;
 						case SDL_BUTTON_RIGHT:
@@ -258,6 +273,7 @@ int main(int argc, char **argv){
 				case SDL_MOUSEBUTTONUP:
 					switch(e.button.button){
 						case SDL_BUTTON_LEFT:
+							grabbed = NULL;
 							break;
 						case SDL_BUTTON_MIDDLE:
 							break;
