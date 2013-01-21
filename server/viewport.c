@@ -104,3 +104,15 @@ irect_t vp_vis_world_rect(viewport_p vp){
 		.w = w, .h = h
 	};
 }
+
+ivec2_t vp_screen_to_world_pos(viewport_p vp, uint16_t x, uint16_t y){
+	// No extra precision needed since everything else is in integer coords.
+	// Even if we have the exact subpixel position we couldn't do anything
+	// useful with it.
+	int64_t sx = x / vp->scale;
+	int64_t sy = y / vp->scale;
+	int64_t wx = vp->pos.x - vp->world_size.x / 2 + sx;
+	int64_t wy = vp->pos.y - vp->world_size.y / 2 + sy;
+	
+	return (ivec2_t){ wx, wy };
+}

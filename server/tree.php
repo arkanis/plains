@@ -37,6 +37,7 @@ void <?= $name ?>_collapse(<?= $name ?>_p node);
 
 typedef <?= $name ?>_p (*<?= $name ?>_iterator_t)(<?= $name ?>_p node);
 <?= $name ?>_p <?= $name ?>_iterate(<?= $name ?>_p node, <?= $name ?>_iterator_t func);
+<?= $name ?>_p <?= $name ?>_iterate_post(<?= $name ?>_p node, <?= $name ?>_iterator_t func);
 
 typedef uint8_t (*<?= $name ?>_handler_t)(<?= $name ?>_p node);
 void <?= $name ?>_delete(<?= $name ?>_p node, <?= $name ?>_handler_t func);
@@ -191,6 +192,22 @@ void <?= $name ?>_collapse(<?= $name ?>_p node){
 			break;
 		
 		result = <?= $name ?>_iterate(child, func);
+		if (result != NULL)
+			break;
+	}
+	
+	return result;
+}
+
+<?= $name ?>_p <?= $name ?>_iterate_post(<?= $name ?>_p node, <?= $name ?>_iterator_t func){
+	<?= $name ?>_p result = NULL;
+	
+	for(<?= $name ?>_p child = node->first; child; child = child->next){
+		result = <?= $name ?>_iterate(child, func);
+		if (result != NULL)
+			break;
+		
+		result = func(child);
 		if (result != NULL)
 			break;
 	}

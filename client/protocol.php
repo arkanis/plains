@@ -34,6 +34,16 @@ $messages = [
 		'height' => 'uint64_t',
 		'private' => 'void*'
 	],
+	'object_update' => [
+		'object_id' => 'uint64_t',
+		
+		'x' => 'int64_t',
+		'y' => 'int64_t',
+		'z' => 'int8_t',
+		'width' => 'uint64_t',
+		'height' => 'uint64_t',
+		'private' => 'void*'
+	],
 	
 	// LEGACY
 	'layer_create' => [
@@ -55,9 +65,15 @@ $messages = [
 		'mod' => 'int'
 	],
 	'mouse_motion' => [
+		'object_id' => 'uint64_t',
+		'private' => 'void*',
+		'flags' => 'uint8_t',
+		
 		'state' => 'uint8_t',
-		'x' => 'uint16_t',
-		'y' => 'uint16_t'
+		'x' => 'uint64_t',
+		'y' => 'uint64_t',
+		'rel_x' => 'int16_t',
+		'rel_y' => 'int16_t'
 	],
 	'mouse_button' => [
 		'type' => 'uint8_t',

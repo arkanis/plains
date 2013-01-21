@@ -14,6 +14,7 @@
 
 draw_request_tree_p build_draw_request_tree(object_tree_p world, viewport_p viewport);
 void check_for_empty_draw_tree_and_finish_rendering(draw_request_tree_p* draw_requests, renderer_p renderer);
+object_tree_p find_hit_object(object_tree_p world, ivec2_t pos);
 
 
 int main(int argc, char **argv){
@@ -63,10 +64,23 @@ int main(int argc, char **argv){
 						msg->object_create.width, msg->object_create.height,
 						client_idx, msg->object_create.private
 					});
+					redraw = true;
+					
 					plains_msg_t resp;
 					ipc_server_send(client, msg_status(&resp, msg->seq, 0, (uint64_t)obj) );
-					
+					} break;
+				case PLAINS_MSG_OBJECT_UPDATE: {
+					// TODO: Big fat security nightmare...
+					object_tree_p obj = (object_tree_p)msg->object_update.object_id;
+					obj->value = (object_t){
+						msg->object_update.x, msg->object_update.y, msg->object_update.z,
+						msg->object_update.width, msg->object_update.height,
+						client_idx, msg->object_update.private
+					};
 					redraw = true;
+					
+					plains_msg_t resp;
+					ipc_server_send(client, msg_status(&resp, msg->seq, 0, 0) );
 					} break;
 				case PLAINS_MSG_STATUS: {
 					// Search for draw request with a matching req_seq. We ignore the status
@@ -206,16 +220,32 @@ int main(int argc, char **argv){
 						
 						vp_changed(viewport);
 						redraw = true;
+					} else {
+						ivec2_t world_pos = vp_screen_to_world_pos(viewport, e.motion.x, e.motion.y);
+						//printf("world_pos: %ld %ld\n", world_pos.x, world_pos.y);
+						object_tree_p hit_object_node = find_hit_object(world, world_pos);
+						
+						if (hit_object_node) {
+							object_p obj = &hit_object_node->value;
+							
+							ipc_client_p client = &server->clients[obj->client_idx];
+							plains_msg_t msg;
+							ipc_server_send(client, msg_mouse_motion(&msg,
+								(uint64_t)obj, obj->client_private, 1,
+								e.motion.state, obj->x - world_pos.x, obj->y - world_pos.y,
+								e.motion.xrel / viewport->scale, e.motion.yrel / viewport->scale
+							));
+						}
 					}
 					break;
 				case SDL_MOUSEBUTTONDOWN:
 					switch(e.button.button){
 						case SDL_BUTTON_LEFT:
-							viewport_grabbed = true;
 							break;
 						case SDL_BUTTON_MIDDLE:
 							break;
 						case SDL_BUTTON_RIGHT:
+							viewport_grabbed = true;
 							break;
 						case SDL_BUTTON_WHEELUP:
 							break;
@@ -228,12 +258,12 @@ int main(int argc, char **argv){
 				case SDL_MOUSEBUTTONUP:
 					switch(e.button.button){
 						case SDL_BUTTON_LEFT:
-							viewport_grabbed = false;
 							break;
 						case SDL_BUTTON_MIDDLE:
 							break;
-						//case SDL_BUTTON_RIGHT:
-						//	break;
+						case SDL_BUTTON_RIGHT:
+							viewport_grabbed = false;
+							break;
 						case SDL_BUTTON_WHEELUP:
 							viewport->scale_exp += 1;
 							{
@@ -413,4 +443,24 @@ void check_for_empty_draw_tree_and_finish_rendering(draw_request_tree_p* draw_re
 		draw_request_tree_destroy(*draw_requests);
 		*draw_requests = NULL;
 	}
+}
+
+// TODO: Take care of hit tree and event probagation
+object_tree_p find_hit_object(object_tree_p world, ivec2_t pos){
+	object_tree_p find_iterator(object_tree_p node){
+		// Calculate non nested world coords
+		int64_t x = node->value.x, y = node->value.y;
+		for(object_tree_p n = node->parent; n; n = n->parent){
+			x += n->value.x;
+			y += n->value.y;
+		}
+		
+		// Casts are required for C to properly sign extend... damn
+		if (pos.x >= x && pos.x < x + (int64_t)node->value.width && pos.y >= y && pos.y < y + (int64_t)node->value.height)
+			return node;
+		return NULL;
+	}
+	// We use post iteration here (iterate parent after children) so we get
+	// the deepest (most accurate) hit.
+	return object_tree_iterate_post(world, find_iterator);
 }

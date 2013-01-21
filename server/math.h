@@ -199,3 +199,11 @@ static inline irect_t irect_intersection(irect_t a, irect_t b){
 	
 	return (irect_t){ i1.x, i1.y, w, h };
 }
+
+static inline vec2_t vec2_itof(ivec2_t v){
+	return (vec2_t){ v.x, v.y };
+}
+
+static inline ivec2_t vec2_ftoi(vec2_t v){
+	return (ivec2_t){ v.x, v.y };
+}

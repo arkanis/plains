@@ -1,4 +1,4 @@
-GCC_FLAGS = -std=gnu99 -O3 -Wall
+GCC_FLAGS = -std=gnu99 -g -Wall
 PHP_OPTS = -d short_open_tag=on
 
 LIB_OBJS = client.o msg.o net.o
