@@ -18,9 +18,11 @@ plains_msg_t msg;
 int64_t pos_x = 0;
 
 typedef struct {
+	int64_t x, y;
 	int w, h;
 	size_t level_count;
 	uint32_t **levels;
+	uint64_t object_id;
 } imagedata_t, *imagedata_p;
 
 void load_file(const char *path){
@@ -39,6 +41,10 @@ void load_file(const char *path){
 	printf("  %dx%d, %.1f MiByte, %zu levels\n", w, h, (w*h*4.0)/(1024*1024), level_count);
 	
 	imagedata_p image_data = malloc(sizeof(imagedata_t));
+	image_data->x = pos_x;
+	pos_x += w + 25;
+	image_data->y = 0;
+	
 	image_data->w = w;
 	image_data->h = h;
 	image_data->level_count = level_count;
@@ -104,12 +110,17 @@ void load_file(const char *path){
 		}
 	}
 	
-	plains_send(con, msg_object_create(&msg, pos_x, 0, 0, w, h, image_data));
+	plains_send(con, msg_object_create(&msg, image_data->x, image_data->y, 0, w, h, image_data));
 	plains_msg_print(&msg);
-	pos_x += w + 25;
+	uint16_t seq = msg.seq;
 	
-	plains_receive(con, &msg);
-	plains_msg_print(&msg);
+	// Loop until we got the confirmation (and object_id) from the server
+	do {
+		plains_receive(con, &msg);
+		plains_msg_print(&msg);
+	} while ( !(msg.type == PLAINS_MSG_STATUS && msg.status.seq == seq) );
+	
+	image_data->object_id = msg.status.id;
 	
 	//stbi_image_free(data);
 }
@@ -189,6 +200,21 @@ int main(int argc, char **argv){
 				plains_send(con, msg_status(&msg, msg.seq, 0, 0) );
 				//plains_msg_print(&msg);
 				} break;
+			case PLAINS_MSG_MOUSE_MOTION:
+				if (msg.mouse_motion.state == 1) {
+					imagedata_p img = (imagedata_p)msg.mouse_motion.private;
+					// Ignore draw requests without image data
+					if (img == NULL)
+						break;
+					
+					img->x += msg.mouse_motion.rel_x;
+					img->y += msg.mouse_motion.rel_y;
+					plains_send(con, msg_object_update(&msg, img->object_id,
+						img->x, img->y, 0, img->w, img->h, img)
+					);
+					plains_msg_print(&msg);
+				}
+				break;
 		}
 	}
 	

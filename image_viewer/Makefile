@@ -1,4 +1,4 @@
-GCC_FLAGS = -std=gnu99 -O3 -Wall
+GCC_FLAGS = -std=gnu99 -g -Wall
 PLAINS_OPTS = -I../client/include -L../client/link -lplains
 
 image_viewer: image_viewer.c
