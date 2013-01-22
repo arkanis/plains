@@ -148,8 +148,15 @@ void renderer_draw_response(renderer_p renderer, draw_request_p req){
 	//glBindTexture(GL_TEXTURE_RECTANGLE_ARB, renderer->texture);
 	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	if (req->scale > 1) {
+		// We're zoomed in (subpixel stuff)
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	} else {
+		// Zoomed out, linear interpolation only burs the images when we're not
+		// exactly on pixel boundaries.
+		glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	}
+	
 	glDrawArrays(GL_QUADS, 0, 4);
 	
 	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
