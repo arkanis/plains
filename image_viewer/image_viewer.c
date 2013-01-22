@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -14,8 +15,13 @@
 #include <dirent.h>
 
 #include <plains/client.h>
+#include <fitz.h>
 #include "stb_image.c"
 
+
+//
+// Metadata functions
+//
 
 typedef struct data_entry_s data_entry_t, *data_entry_p;
 
@@ -97,6 +103,11 @@ void metadata_set(dir_metadata_p metadata, const char *path, int64_t x, int64_t 
 	}
 }
 
+
+//
+// Misc functions
+//
+
 char* str_append(const char *a, const char *b){
 	size_t alen = strlen(a), blen = strlen(b);
 	char* dest = malloc(alen + blen + 1);
@@ -105,7 +116,72 @@ char* str_append(const char *a, const char *b){
 	return dest;
 }
 
+char* str_tricat(const char *a, const char *b, const char *c){
+	size_t len_a = strlen(a), len_b = strlen(b), len_c = strlen(c);
+	char* dest = malloc(len_a + len_b + len_c + 1);
+	strcpy(dest, a);
+	strcpy(dest + len_a, b);
+	strcpy(dest + len_a + len_b, c);
+	return dest;
+}
 
+bool str_ends_with(const char *subject, const char *end){
+	size_t len_s = strlen(subject), len_e = strlen(end);
+	
+	// If end is longer than subject it does not work
+	if (len_e > len_s)
+		return false;
+	
+	return ( strcmp(subject + (len_s - len_e), end) == 0 );
+}
+
+
+//
+// File tree walking functions
+//
+
+typedef void (*dir_walker_t)(const char *path, uint8_t type);
+
+/**
+ * Traverse a directory tree. Traversal order: directory itself, its files, child directories.
+ * This is unlike ftw(). Therefore we had to do it by ourselfs.
+ */
+void file_tree_walk(const char *path, dir_walker_t walker){
+	// Open directory, stop traversing on error
+	DIR* dir = opendir(path);
+	if (dir == NULL)
+		return;
+	
+	// Directory valid, call waker for current directory
+	walker(path, DT_DIR);
+	
+	// Now walk all files in this directory
+	struct dirent *de = NULL;
+	while( (de = readdir(dir)) != NULL ){
+		if (de->d_type != DT_DIR) {
+			char* filepath = str_tricat(path, "/", de->d_name);
+			walker(filepath, de->d_type);
+			free(filepath);
+		}
+	}
+	
+	// Rewind and walk all subdirectories
+	rewinddir(dir);
+	while( (de = readdir(dir)) != NULL ){
+		if (de->d_type == DT_DIR && !(strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)) {
+			char* filepath = str_tricat(path, "/", de->d_name);
+			file_tree_walk(filepath, walker);
+			free(filepath);
+		}
+	}
+	
+	closedir(dir);
+}
+
+
+//
+// Image loading functions
+//
 
 plains_con_p con;
 plains_msg_t msg;
@@ -121,20 +197,12 @@ typedef struct {
 	dir_metadata_p metadata;
 } imagedata_t, *imagedata_p;
 
-void load_file(const char *path, dir_metadata_p metadata){
-	printf("loading file %s...\n", path);
-	
-	int w = 0, h = 0;
-	uint32_t *data = (uint32_t*)stbi_load(path, &w, &h, NULL, 4);
-	if (data == NULL){
-		printf("  failed: %s\n", stbi_failure_reason());
-		return;
-	}
-	
+
+void create_object(const char* path, dir_metadata_p metadata, void* pixel_data, size_t w, size_t h){
 	int smallest_side = (w < h) ? w : h;
 	size_t level_count = sizeof(int)*8 - __builtin_clz(smallest_side);
 	
-	printf("  %dx%d, %.1f MiByte, %zu levels\n", w, h, (w*h*4.0)/(1024*1024), level_count);
+	printf("  %zux%zu, %.1f MiByte, %zu levels\n", w, h, (w*h*4.0)/(1024*1024), level_count);
 	
 	imagedata_p image_data = malloc(sizeof(imagedata_t));
 	// the GNU version of basename() does not modify the path, so it's safe
@@ -156,7 +224,7 @@ void load_file(const char *path, dir_metadata_p metadata){
 	image_data->h = h;
 	image_data->level_count = level_count;
 	image_data->levels = malloc(level_count * sizeof(image_data->levels[0]));
-	image_data->levels[0] = data;
+	image_data->levels[0] = pixel_data;
 	
 	for(size_t i = 1; i < level_count; i++){
 		int lw = w >> i, lh = h >> i;
@@ -228,45 +296,72 @@ void load_file(const char *path, dir_metadata_p metadata){
 	} while ( !(msg.type == PLAINS_MSG_STATUS && msg.status.seq == seq) );
 	
 	image_data->object_id = msg.status.id;
+}
+
+void load_file(const char *path, dir_metadata_p metadata){
+	printf("loading file %s...\n", path);
+	
+	int w = 0, h = 0;
+	uint32_t* pixel_data = (uint32_t*)stbi_load(path, &w, &h, NULL, 4);
+	if (pixel_data) {
+		create_object(path, metadata, pixel_data, w, h);
+	} else if ( str_ends_with(path, ".pdf") ) {
+		uint32_t* pixel_data = NULL;
+		size_t page_size = 0;
+		
+		fz_context *ctx = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED);
+		fz_document *doc = fz_open_document(ctx, strdup(path));
+		
+		int page_count = fz_count_pages(doc);
+		printf("  rendering %d pages\n", page_count);
+		
+		
+		for(size_t page_idx = 0; page_idx < page_count; page_idx++){
+			fz_page *page = fz_load_page(doc, page_idx);
+			
+			fz_rect rect = fz_bound_page(doc, page);
+			fz_bbox bbox = fz_round_rect(rect);
+			if (pixel_data == NULL) {
+				w = bbox.x1 - bbox.x0;
+				h = bbox.y1 - bbox.y0;
+				page_size = w * h * 4;
+				pixel_data = malloc(page_size * page_count);
+			}
+			
+			fz_pixmap *pix = fz_new_pixmap_with_bbox(ctx, fz_device_rgb, bbox);
+			fz_clear_pixmap_with_value(ctx, pix, 0xff);
+			
+			fz_device *dev = fz_new_draw_device(ctx, pix);
+			fz_run_page(doc, page, dev, fz_identity, NULL);
+			fz_free_device(dev);
+			
+			if ( fz_pixmap_components(ctx, pix) == 4 ) {
+				uint32_t* page_pixel_data = (uint32_t*)fz_pixmap_samples(ctx, pix);
+				
+				// DO NOT USE page_size for offset calculation. Since we add to a uint32_t pointer
+				// the offset is in pixels, not bytes!
+				uint32_t* pixel_data_off = pixel_data + w*h*page_idx;
+				memcpy(pixel_data_off, page_pixel_data, page_size);
+			} else {
+				printf("  PDF rendering did not result in RGBA image!\n");
+			}
+			
+			fz_free_page(doc, page);
+		}
+		
+		fz_close_document(doc);
+		fz_free_context(ctx);
+		
+		if (pixel_data)
+			create_object(path, metadata, pixel_data, w, h * page_count);
+	} else {
+		printf("  stbi failed: %s\n", stbi_failure_reason());
+	}
 	
 	//stbi_image_free(data);
 }
 
 
-typedef void (*dir_walker_t)(const char *path, uint8_t type);
-
-/**
- * Traverse a directory tree. Traversal order: directory itself, its files, child directories.
- * This is unlike ftw(). Therefore we had to do it by ourselfs.
- */
-void file_tree_walk(const char *path, dir_walker_t walker){
-	// Walk our directory itself
-	walker(path, DT_DIR);
-	
-	char* old_wd = getcwd(NULL, 0); // Buffer allocated automatically (GNU ext.)
-	
-	DIR* dir = opendir(path);
-	struct dirent *de = NULL;
-	chdir(path);
-	
-	// Now walk all files in this directory
-	while( (de = readdir(dir)) != NULL ){
-		if (de->d_type != DT_DIR)
-			walker(de->d_name, de->d_type);
-	}
-	
-	// Rewind and walk all subdirectories
-	rewinddir(dir);
-	while( (de = readdir(dir)) != NULL ){
-		if (de->d_type == DT_DIR && !(strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0))
-			file_tree_walk(de->d_name, walker);
-	}
-	
-	closedir(dir);
-	
-	chdir(old_wd);
-	free(old_wd);
-}
 
 int main(int argc, char **argv){
 	if (argc != 3){
@@ -293,8 +388,10 @@ int main(int argc, char **argv){
 		void walker(const char *path, uint8_t type){
 			if (type == DT_DIR) {
 				// We're at a directory, look for metadata
+				//printf("dir:  %s\n", path);
 				dir_metadata = metadata_read(str_append(path, "/.plains"));
-			} else if (type == DT_REG) {
+			} else if ( type == DT_REG && !str_ends_with(path, ".plains") ) {
+				//printf("file: %s\n", path);
 				load_file(path, dir_metadata);
 			}
 		}
