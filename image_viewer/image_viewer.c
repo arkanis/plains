@@ -286,13 +286,13 @@ void create_object(const char* path, dir_metadata_p metadata, void* pixel_data, 
 	}
 	
 	plains_send(con, msg_object_create(&msg, image_data->x, image_data->y, 0, w, h, image_data));
-	plains_msg_print(&msg);
+	//plains_msg_print(&msg);
 	uint16_t seq = msg.seq;
 	
 	// Loop until we got the confirmation (and object_id) from the server
 	do {
 		plains_receive(con, &msg);
-		plains_msg_print(&msg);
+		//plains_msg_print(&msg);
 	} while ( !(msg.type == PLAINS_MSG_STATUS && msg.status.seq == seq) );
 	
 	image_data->object_id = msg.status.id;
@@ -306,6 +306,9 @@ void load_file(const char *path, dir_metadata_p metadata){
 	if (pixel_data) {
 		create_object(path, metadata, pixel_data, w, h);
 	} else if ( str_ends_with(path, ".pdf") ) {
+		float pdf_scale = 2;
+		fz_matrix transform = fz_scale(pdf_scale, pdf_scale);
+		
 		uint32_t* pixel_data = NULL;
 		size_t page_size = 0;
 		
@@ -320,7 +323,9 @@ void load_file(const char *path, dir_metadata_p metadata){
 			fz_page *page = fz_load_page(doc, page_idx);
 			
 			fz_rect rect = fz_bound_page(doc, page);
+			rect = fz_transform_rect(transform, rect);
 			fz_bbox bbox = fz_round_rect(rect);
+			
 			if (pixel_data == NULL) {
 				w = bbox.x1 - bbox.x0;
 				h = bbox.y1 - bbox.y0;
@@ -332,7 +337,7 @@ void load_file(const char *path, dir_metadata_p metadata){
 			fz_clear_pixmap_with_value(ctx, pix, 0xff);
 			
 			fz_device *dev = fz_new_draw_device(ctx, pix);
-			fz_run_page(doc, page, dev, fz_identity, NULL);
+			fz_run_page(doc, page, dev, transform, NULL);
 			fz_free_device(dev);
 			
 			if ( fz_pixmap_components(ctx, pix) == 4 ) {

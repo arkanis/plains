@@ -1,4 +1,4 @@
-GCC_FLAGS = -std=gnu99 -g -Wall
+GCC_FLAGS = -std=gnu99 -O3 -Wall
 PLAINS_OPTS = -I../client/include -L../client/link -lplains
 MUPDF_LIBS = -lfitz -lfreetype -lopenjpeg -ljbig2dec -ljpeg -lpng -lm -lz
 
