@@ -40,6 +40,10 @@ int main(int argc, char **argv){
 	draw_request_tree_p draw_requests = NULL, retained_draw_requests = NULL;
 	SDL_Event e;
 	bool quit = false, viewport_grabbed = false, redraw = true;
+	size_t moving = 0; // count of moving axis (in case we press two arrow keys at the same time and release one, then we still should move into the second direction)
+	int next_move_in = 1;  // cycles until redraw is automatically set to true
+	ivec2_t move_dir = (ivec2_t){0, 0};
+	int64_t move_speed = 15, speed_boost_factor = 4;
 	
 	while (!quit) {
 		void connect_handler(size_t client_idx, ipc_client_p client){
@@ -162,30 +166,56 @@ int main(int argc, char **argv){
 				case SDL_KEYUP:
 					switch(e.key.keysym.sym){
 						case SDLK_LEFT:
-							viewport->pos.x -= 1;
-							vp_changed(viewport);
-							redraw = true;
+							move_dir = iv2_sub(move_dir, (ivec2_t){-1, 0});
+							moving--;
 							break;
 						case SDLK_RIGHT:
-							viewport->pos.x += 1;
-							vp_changed(viewport);
-							redraw = true;
+							move_dir = iv2_sub(move_dir, (ivec2_t){ 1, 0});
+							moving--;
 							break;
 						case SDLK_UP:
-							viewport->pos.y -= 1;
-							vp_changed(viewport);
-							redraw = true;
+							move_dir = iv2_sub(move_dir, (ivec2_t){0, -1});
+							moving--;
 							break;
 						case SDLK_DOWN:
-							viewport->pos.y += 1;
-							vp_changed(viewport);
-							redraw = true;
+							move_dir = iv2_sub(move_dir, (ivec2_t){0,  1});
+							moving--;
+							break;
+						case SDLK_RSHIFT: case SDLK_LSHIFT:
+							move_speed /= speed_boost_factor;
 							break;
 						default:
 							break;
 					}
 					break;
 				case SDL_KEYDOWN:
+					switch(e.key.keysym.sym){
+						case SDLK_LEFT:
+							move_dir = iv2_add(move_dir, (ivec2_t){-1, 0});
+							moving++;
+							next_move_in = 0;
+							break;
+						case SDLK_RIGHT:
+							move_dir = iv2_add(move_dir, (ivec2_t){ 1, 0});
+							moving++;
+							next_move_in = 0;
+							break;
+						case SDLK_UP:
+							move_dir = iv2_add(move_dir, (ivec2_t){0, -1});
+							moving++;
+							next_move_in = 0;
+							break;
+						case SDLK_DOWN:
+							move_dir = iv2_add(move_dir, (ivec2_t){0,  1});
+							moving++;
+							next_move_in = 0;
+							break;
+						case SDLK_RSHIFT: case SDLK_LSHIFT:
+							move_speed *= speed_boost_factor;
+							break;
+						default:
+							break;
+					}
 					break;
 				case SDL_MOUSEMOTION:
 					/*
@@ -312,6 +342,19 @@ int main(int argc, char **argv){
 							break;
 					}
 					break;
+			}
+		}
+		
+		// Handle continious moving
+		if (moving > 0) {
+			if (next_move_in < 1) {
+				next_move_in = 3;
+				
+				redraw = true;
+				viewport->pos = iv2_add(viewport->pos, iv2_muls(move_dir, move_speed / viewport->scale));
+				vp_changed(viewport);
+			} else {
+				next_move_in--;
 			}
 		}
 		
