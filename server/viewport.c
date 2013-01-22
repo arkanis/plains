@@ -41,8 +41,8 @@ void vp_changed(viewport_p vp){
 	// Calculate matrix to convert screen coords back to world coords
 	float sx = vp->world_size.x / (float)vp->screen_size.x;
 	float sy = vp->world_size.y / (float)vp->screen_size.y;
-	float tx = -0.5 * vp->world_size.x + vp->pos.x + vp->subpixel_pos.x;
-	float ty = -0.5 * vp->world_size.y + vp->pos.y + vp->subpixel_pos.y;
+	float tx = -0.5 * vp->world_size.x + vp->pos.x /*+ vp->subpixel_pos.x*/;
+	float ty = -0.5 * vp->world_size.y + vp->pos.y /*+ vp->subpixel_pos.y*/;
 	m3_transpose(vp->screen_to_world, (mat3_t){
 		sx, 0, tx,
 		0, sy, ty,
@@ -52,8 +52,21 @@ void vp_changed(viewport_p vp){
 	// World to normal matrix
 	sx = 2.0 / vp->world_size.x;
 	sy = -2.0 / vp->world_size.y;
-	tx = -(vp->pos.x + vp->subpixel_pos.x) * (2.0 / vp->world_size.x);
-	ty = (vp->pos.y + vp->subpixel_pos.y) * (2.0 / vp->world_size.y);
+	tx = -vp->pos.x  * (2.0 / vp->world_size.x);
+	ty = vp->pos.y * (2.0 / vp->world_size.y);
+	/* Sharper image without all that subpixel stuff...
+	if (vp->scale < 1) {
+		// We're at subpixel level, add subpixel positions to the game
+		tx = -(vp->pos.x + vp->subpixel_pos.x) * (2.0 / vp->world_size.x);
+		ty = (vp->pos.y + vp->subpixel_pos.y) * (2.0 / vp->world_size.y);
+	} else {
+		// Zoomed out or native resolution, subpixel position only makes
+		// the image blury.
+		tx = -vp->pos.x  * (2.0 / vp->world_size.x);
+		ty = vp->pos.y * (2.0 / vp->world_size.y);
+	}
+	*/
+	
 	m3_transpose(vp->world_to_normal, (mat3_t){
 		sx, 0, tx,
 		0, sy, ty,
@@ -63,8 +76,8 @@ void vp_changed(viewport_p vp){
 	// World to screen matrix
 	sx = vp->screen_size.x / vp->world_size.x;
 	sy = vp->screen_size.y / vp->world_size.y;
-	tx = -(vp->pos.x + vp->subpixel_pos.x) * sx + 0.5 * vp->screen_size.x;
-	ty = (vp->pos.y + vp->subpixel_pos.y) * sy + 0.5 * vp->screen_size.y;
+	tx = -(vp->pos.x /*+ vp->subpixel_pos.x*/) * sx + 0.5 * vp->screen_size.x;
+	ty = (vp->pos.y /*+ vp->subpixel_pos.y*/) * sy + 0.5 * vp->screen_size.y;
 	m3_transpose(vp->world_to_screen, (mat3_t){
 		sx, 0, tx,
 		0, sy, ty,
