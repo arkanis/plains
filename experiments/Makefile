@@ -19,5 +19,9 @@ image_loader: image_loader.c
 socket_buffer: socket_buffer.c
 	gcc socket_buffer.c -o socket_buffer
 
+# Requires mupdf package
+mupdf: mupdf.c
+	gcc -std=gnu99 mupdf.c -o mupdf -lfitz -lfreetype -lopenjpeg -ljbig2dec -ljpeg -lpng -lm -lz
+
 clean:
-	rm -f basic-xgl x-client xcb-client x-sample image_loader socket_buffer
+	rm -f basic-xgl x-client xcb-client x-sample image_loader socket_buffer mupdf
