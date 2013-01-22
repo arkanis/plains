@@ -72,6 +72,13 @@ void vp_changed(viewport_p vp){
 		0, sy, ty,
 		0, 0, 1
 	});
+	/*
+	printf("world to normal:\n  %10.6f %10.6f %10.6f\n  %10.6f %10.6f %10.6f\n  %10.6f %10.6f %10.6f\n",
+		sx, 0.0, tx,
+		0.0, sy, ty,
+		0.0, 0.0, 1.0
+	);
+	*/
 	
 	// World to screen matrix
 	sx = vp->screen_size.x / vp->world_size.x;

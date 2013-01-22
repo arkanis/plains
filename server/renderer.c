@@ -110,6 +110,18 @@ void renderer_draw_response(renderer_p renderer, draw_request_p req){
 	buffer[bo++] = x + w;  buffer[bo++] = y + h;  buffer[bo++] = req->bw;  buffer[bo++] = req->bh;
 	buffer[bo++] = x + 0;  buffer[bo++] = y + h;  buffer[bo++] =       0;  buffer[bo++] = req->bh;
 	
+	/*
+	printf("vertex buffer:\n");
+	for(size_t i = 0; i < bo; i += 16){
+		printf("  %f,%f (%.0f,%.0f)  %f,%f (%.0f,%.0f)\n  %f,%f (%.0f,%.0f)  %f,%f (%.0f,%.0f)\n--\n",
+			buffer[i+0], buffer[i+1], buffer[i+2], buffer[i+3],
+			buffer[i+4], buffer[i+5], buffer[i+6], buffer[i+7],
+			buffer[i+8], buffer[i+9], buffer[i+10], buffer[i+11],
+			buffer[i+12], buffer[i+13], buffer[i+14], buffer[i+15]
+		);
+	}
+	*/
+	
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	
 	
@@ -136,7 +148,8 @@ void renderer_draw_response(renderer_p renderer, draw_request_p req){
 	//glBindTexture(GL_TEXTURE_RECTANGLE_ARB, renderer->texture);
 	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	//glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glDrawArrays(GL_QUADS, 0, 4);
 	
 	glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);

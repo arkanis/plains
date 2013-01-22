@@ -430,6 +430,14 @@ int main(int argc, char **argv){
 					size_t level_width = img->w >> level_idx;
 					int64_t level_x = msg.draw.x >> level_idx, level_y = msg.draw.y >> level_idx;
 					
+					/*
+					printf("buffer at %f %lu %lu, layer at %d, %zu %zu, obj %ld %ld %lu %lu\n",
+						msg.draw.scale, msg.draw.buffer_width, msg.draw.buffer_height,
+						level_idx, level_width, img->h >> level_idx,
+						msg.draw.x, msg.draw.y, msg.draw.width, msg.draw.height
+					);
+					*/
+					
 					for(size_t by = 0; by < msg.draw.buffer_height; by++){
 						size_t oy = level_y + by;
 						memcpy(
