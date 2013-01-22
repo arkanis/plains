@@ -162,22 +162,22 @@ int main(int argc, char **argv){
 				case SDL_KEYUP:
 					switch(e.key.keysym.sym){
 						case SDLK_LEFT:
-							viewport->pos.x -= 25;
+							viewport->pos.x -= 1;
 							vp_changed(viewport);
 							redraw = true;
 							break;
 						case SDLK_RIGHT:
-							viewport->pos.x += 25;
+							viewport->pos.x += 1;
 							vp_changed(viewport);
 							redraw = true;
 							break;
 						case SDLK_UP:
-							viewport->pos.y += 25;
+							viewport->pos.y -= 1;
 							vp_changed(viewport);
 							redraw = true;
 							break;
 						case SDLK_DOWN:
-							viewport->pos.y -= 25;
+							viewport->pos.y += 1;
 							vp_changed(viewport);
 							redraw = true;
 							break;
