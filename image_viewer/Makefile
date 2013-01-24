@@ -1,7 +1,7 @@
-GCC_FLAGS = -std=gnu99 -O3 -Wall
+include ../Makeparams
+
 PLAINS_OPTS = -I../client/include -L../client/link -lplains
 MUPDF_LIBS = -lfitz -lfreetype -lopenjpeg -ljbig2dec -ljpeg -lpng -lm -lz
-
 MUPDF_ARGS = -Imupdf/fitz -Imupdf/pdf -Lmupdf/build/native
 
 image_viewer: image_viewer.c mupdf
@@ -20,5 +20,7 @@ mupdf:
 	cd mupdf; build=native make -j 2
 
 clean:
-	rm -f *.o image_viewer
+	rm -f `tr '\n' ' ' < .gitignore`
+
+clean_deps:
 	rm -rf mupdf

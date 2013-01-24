@@ -1,5 +1,4 @@
-GCC_FLAGS = -std=gnu99 -g -Wall
-PHP_OPTS = -d short_open_tag=on
+include ../Makeparams
 
 LIB_OBJS = client.o msg.o net.o
 lib: link include
@@ -29,6 +28,5 @@ net.o: net.c net.h msg.h
 
 
 clean:
-	rm -f *.o msg.h msg.c
-	rm -rf link include
+	rm -fr `tr '\n' ' ' < .gitignore`
 	cd tests; make clean

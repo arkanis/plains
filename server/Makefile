@@ -1,5 +1,4 @@
-GCC_FLAGS = -std=gnu99 -g -Wall
-PHP_OPTS = -d short_open_tag=on
+include ../Makeparams
 
 # For parts that depend on client library files
 PLAINS_OPTS = -I../client/include -L../client/link -lplains

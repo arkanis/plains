@@ -1,0 +1,2 @@
+GCC_FLAGS = -std=gnu99 -O3 -Wall
+PHP_OPTS = -d short_open_tag=on

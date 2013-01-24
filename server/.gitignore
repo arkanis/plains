@@ -1,4 +1,5 @@
 *.o
+core
 server
 object_tree.c
 object_tree.h
