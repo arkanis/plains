@@ -293,6 +293,8 @@ void create_object(const char* path, dir_metadata_p metadata, void* pixel_data, 
 	do {
 		plains_receive(con, &msg);
 		//plains_msg_print(&msg);
+		if (msg.type == PLAINS_MSG_DRAW)
+			close(msg.draw.shm_fd);
 	} while ( !(msg.type == PLAINS_MSG_STATUS && msg.status.seq == seq) );
 	
 	image_data->object_id = msg.status.id;
@@ -447,7 +449,7 @@ int main(int argc, char **argv){
 						);
 					}
 				} else {
-					fprintf(stderr, "no image level for scale %f\n", msg.draw.scale);
+					//fprintf(stderr, "no image level for scale %f\n", msg.draw.scale);
 				}
 				
 				munmap(pixel_data, shm_size);
