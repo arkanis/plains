@@ -739,9 +739,9 @@
 				tab: "  "
 			};
 
-			var F = function() {}
-			F.prototype = original;	
-			var self = $(new F());
+			//var F = function() {}
+			//F.prototype = original;
+			var self = $(original);
 
 			self.hasSelection = function() {
 					return self.getSelection() !== "";
