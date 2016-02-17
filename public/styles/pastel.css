@@ -118,7 +118,7 @@ body #editor {
     top: 40px;
     bottom: 10px;
     left: 20px;
-    right: 20px;
+    width: calc(100% - 40px);
     padding: 5px;
     border: none; }
 
