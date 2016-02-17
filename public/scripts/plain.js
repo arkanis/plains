@@ -314,14 +314,13 @@
 						var origin = parent_entry.data('origin');
 					}
 					
-					// If the section element is the map root use the root plain as parent. Set
-					// origin to `null` because `undefined` breaks jQuerys `data()` function.
+					// If the section element is the map root use the root plain as parent
 					if(parent_id == 'map') {
 						parent_id = data_path;
-						origin = null;
+						origin = data_path;
 					}
 					
-					jQuery.ajax(parent_id, {
+					jQuery.ajax(parent_id, {		  
 						type: 'POST', 
 						data: JSON.stringify({
 							raw: editor.data('textarea').val(),
@@ -335,7 +334,7 @@
 								trigger('content-updated');
 							editor.trigger('close');
 						}
-					});
+					});	      
 				}
 			},
 			
